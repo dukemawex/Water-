@@ -205,16 +205,16 @@ async function ingestState(stateCd: string): Promise<number> {
 }
 
 /** Get or create a virtual "USGS NWIS" sensor for a location. */
-const _sensorCache = new Map<string, string>();
+const sensorCache = new Map<string, string>();
 async function getOrCreateSentinelSensor(locationId: string): Promise<string> {
-  if (_sensorCache.has(locationId)) return _sensorCache.get(locationId)!;
+  if (sensorCache.has(locationId)) return sensorCache.get(locationId)!;
 
   const existing = await prisma.sensor.findFirst({
     where: { locationId, serialNumber: { startsWith: 'USGS-NWIS-' } },
     select: { id: true },
   });
   if (existing) {
-    _sensorCache.set(locationId, existing.id);
+    sensorCache.set(locationId, existing.id);
     return existing.id;
   }
 
@@ -226,7 +226,7 @@ async function getOrCreateSentinelSensor(locationId: string): Promise<string> {
       status: 'ONLINE',
     },
   });
-  _sensorCache.set(locationId, created.id);
+  sensorCache.set(locationId, created.id);
   return created.id;
 }
 

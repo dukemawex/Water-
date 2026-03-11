@@ -36,6 +36,7 @@ const sourceLabels: Record<string, string> = {
   NASA_MODIS: 'NASA MODIS',
   COPERNICUS_SENTINEL2: 'ESA Sentinel-2',
   COPERNICUS_SENTINEL3: 'ESA Sentinel-3',
+  COPERNICUS_CMEMS: 'Copernicus CMEMS',
 };
 
 const sourceColor: Record<string, string> = {
@@ -43,6 +44,7 @@ const sourceColor: Record<string, string> = {
   NASA_MODIS: '#0066CC',
   COPERNICUS_SENTINEL2: '#00A8E0',
   COPERNICUS_SENTINEL3: '#1A7A4A',
+  COPERNICUS_CMEMS: '#0066CC',
 };
 
 function formatTimestamp(iso: string): string {

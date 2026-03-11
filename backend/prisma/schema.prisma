@@ -59,6 +59,7 @@ enum SatelliteSource {
   NASA_MODIS
   COPERNICUS_SENTINEL2
   COPERNICUS_SENTINEL3
+  COPERNICUS_CMEMS
 }
 
 model User {

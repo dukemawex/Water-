@@ -188,7 +188,7 @@ async function storeCmemsReadings(
         create: {
           id,
           locationId,
-          source: 'NASA_MODIS', // use closest available enum value; schema will be extended
+          source: 'COPERNICUS_CMEMS',
           capturedAt: new Date(point.capturedAt),
           chlorophyllA: point.chl ?? null,
           surfaceTemperature: point.thetao ?? null,

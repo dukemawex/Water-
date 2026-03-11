@@ -200,9 +200,15 @@ export default function Layout({ children }: Props) {
           <button
             onClick={() => void handleLogout()}
             className="flex items-center gap-2 px-2 py-2 w-full transition-colors"
-            style={{ fontSize: '13px', color: '#6B7280', borderRadius: '4px' }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = '#F9FAFB'; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}
+            style={{
+              fontSize: '13px',
+              color: '#6B7280',
+              borderRadius: '4px',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              textAlign: 'left',
+            }}
           >
             <LogOut size={16} aria-hidden="true" />
             Sign Out
