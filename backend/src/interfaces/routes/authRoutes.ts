@@ -2,6 +2,8 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { loginUser, registerUser, refreshUserToken } from '../../domain/authService';
 import { authenticate, AuthenticatedRequest } from '../middleware/authMiddleware';
+import { rateLimiter } from '../middleware/rateLimiter';
+import { generateCsrfToken, validateCsrfToken } from '../middleware/csrfMiddleware';
 
 export const authRouter = Router();
 
@@ -16,7 +18,9 @@ const loginSchema = z.object({
   password: z.string(),
 });
 
-authRouter.post('/register', async (req: Request, res: Response, next: NextFunction) => {
+authRouter.get('/csrf-token', rateLimiter('auth'), generateCsrfToken);
+
+authRouter.post('/register', rateLimiter('auth'), validateCsrfToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { email, password, name } = registerSchema.parse(req.body);
     const user = await registerUser(email, password, name);
@@ -24,7 +28,7 @@ authRouter.post('/register', async (req: Request, res: Response, next: NextFunct
   } catch (err) { next(err); }
 });
 
-authRouter.post('/login', async (req: Request, res: Response, next: NextFunction) => {
+authRouter.post('/login', rateLimiter('auth'), validateCsrfToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { email, password } = loginSchema.parse(req.body);
     const result = await loginUser(email, password);
@@ -38,7 +42,7 @@ authRouter.post('/login', async (req: Request, res: Response, next: NextFunction
   } catch (err) { next(err); }
 });
 
-authRouter.post('/refresh', async (req: Request, res: Response, next: NextFunction) => {
+authRouter.post('/refresh', rateLimiter('auth'), validateCsrfToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const token = req.cookies['refreshToken'] as string;
     if (!token) { res.status(401).json({ success: false, data: null, message: 'No refresh token', timestamp: new Date().toISOString() }); return; }
@@ -47,11 +51,11 @@ authRouter.post('/refresh', async (req: Request, res: Response, next: NextFuncti
   } catch (err) { next(err); }
 });
 
-authRouter.post('/logout', authenticate, (req: AuthenticatedRequest, res: Response) => {
+authRouter.post('/logout', rateLimiter('auth'), authenticate, (req: AuthenticatedRequest, res: Response) => {
   res.clearCookie('refreshToken');
   res.json({ success: true, data: null, message: 'Logged out', timestamp: new Date().toISOString() });
 });
 
-authRouter.get('/me', authenticate, (req: AuthenticatedRequest, res: Response) => {
+authRouter.get('/me', rateLimiter('auth'), authenticate, (req: AuthenticatedRequest, res: Response) => {
   res.json({ success: true, data: req.user, message: 'Current user', timestamp: new Date().toISOString() });
 });

@@ -2,10 +2,11 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { prisma } from '../../infrastructure/database';
 import { authenticate } from '../middleware/authMiddleware';
+import { rateLimiter } from '../middleware/rateLimiter';
 
 export const readingRouter = Router();
 
-readingRouter.get('/trend', authenticate, async (req: Request, res: Response, next: NextFunction) => {
+readingRouter.get('/trend', rateLimiter('default'), authenticate, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const query = z.object({
       locationId: z.string().uuid(),
@@ -20,7 +21,6 @@ readingRouter.get('/trend', authenticate, async (req: Request, res: Response, ne
       select: { recordedAt: true, ph: true, turbidity: true, dissolvedOxygen: true, conductivity: true, temperature: true, nitrate: true, bacteria: true, overallScore: true, qualityGrade: true },
     });
 
-    // Also fetch satellite turbidity for overlay
     const satelliteReadings = await prisma.satelliteReading.findMany({
       where: { locationId: query.locationId, capturedAt: { gte: since } },
       orderBy: { capturedAt: 'asc' },
@@ -51,7 +51,7 @@ readingRouter.get('/trend', authenticate, async (req: Request, res: Response, ne
   } catch (err) { next(err); }
 });
 
-readingRouter.get('/latest', authenticate, async (req: Request, res: Response, next: NextFunction) => {
+readingRouter.get('/latest', rateLimiter('default'), authenticate, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { locationId } = z.object({ locationId: z.string().uuid().optional() }).parse(req.query);
     const where = locationId ? { locationId } : {};

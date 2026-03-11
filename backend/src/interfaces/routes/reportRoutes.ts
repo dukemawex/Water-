@@ -2,12 +2,13 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { authenticate, authorize } from '../middleware/authMiddleware';
 import { UserRole } from '../../types/enums';
 import { generateLocationReport } from '../../domain/reportService';
+import { rateLimiter } from '../middleware/rateLimiter';
 import path from 'path';
 import fs from 'fs';
 
 export const reportRouter = Router();
 
-reportRouter.post('/generate/:locationId', authenticate, authorize(UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.REGULATOR, UserRole.ANALYST), async (req: Request, res: Response, next: NextFunction) => {
+reportRouter.post('/generate/:locationId', rateLimiter('ai'), authenticate, authorize(UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.REGULATOR, UserRole.ANALYST), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const outputPath = await generateLocationReport(req.params.locationId);
     const filename = path.basename(outputPath);
@@ -15,7 +16,7 @@ reportRouter.post('/generate/:locationId', authenticate, authorize(UserRole.ADMI
   } catch (err) { next(err); }
 });
 
-reportRouter.get('/download/:filename', authenticate, (req: Request, res: Response, next: NextFunction) => {
+reportRouter.get('/download/:filename', rateLimiter('default'), authenticate, (req: Request, res: Response, next: NextFunction) => {
   try {
     const safeName = path.basename(req.params.filename);
     const filePath = path.resolve(process.env.PDF_OUTPUT_DIR ?? './reports', safeName);

@@ -8,7 +8,6 @@ import { env } from './config/env';
 import { logger } from './config/logger';
 import { setupWebSocketServer } from './infrastructure/wsServer';
 import { errorMiddleware } from './interfaces/middleware/errorMiddleware';
-import { rateLimiter } from './interfaces/middleware/rateLimiter';
 import { authRouter } from './interfaces/routes/authRoutes';
 import { publicRouter } from './interfaces/routes/publicRoutes';
 import { sensorRouter } from './interfaces/routes/sensorRoutes';
@@ -56,15 +55,15 @@ app.get('/health', (_req, res) => {
   });
 });
 
-// API Routes
-app.use('/api/auth', rateLimiter('auth'), authRouter);
-app.use('/api/public', rateLimiter('default'), publicRouter);
-app.use('/api/sensors', rateLimiter('default'), sensorRouter);
-app.use('/api/readings', rateLimiter('default'), readingRouter);
-app.use('/api/alerts', rateLimiter('default'), alertRouter);
-app.use('/api/locations', rateLimiter('default'), locationRouter);
-app.use('/api/reports', rateLimiter('ai'), reportRouter);
-app.use('/api/satellite', rateLimiter('default'), satelliteRouter);
+// API Routes — rate limiting applied per-router
+app.use('/api/auth', authRouter);
+app.use('/api/public', publicRouter);
+app.use('/api/sensors', sensorRouter);
+app.use('/api/readings', readingRouter);
+app.use('/api/alerts', alertRouter);
+app.use('/api/locations', locationRouter);
+app.use('/api/reports', reportRouter);
+app.use('/api/satellite', satelliteRouter);
 
 // Error handling
 app.use(errorMiddleware);

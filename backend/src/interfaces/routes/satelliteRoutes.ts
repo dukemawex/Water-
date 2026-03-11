@@ -3,10 +3,11 @@ import { z } from 'zod';
 import { authenticate } from '../middleware/authMiddleware';
 import { getSatelliteReadings, getLatestSatelliteReading, fetchAllSatelliteData } from '../../domain/satelliteDataService';
 import { prisma } from '../../infrastructure/database';
+import { rateLimiter } from '../middleware/rateLimiter';
 
 export const satelliteRouter = Router();
 
-satelliteRouter.get('/readings', authenticate, async (req: Request, res: Response, next: NextFunction) => {
+satelliteRouter.get('/readings', rateLimiter('default'), authenticate, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { locationId, days } = z.object({
       locationId: z.string().uuid(),
@@ -18,7 +19,7 @@ satelliteRouter.get('/readings', authenticate, async (req: Request, res: Respons
   } catch (err) { next(err); }
 });
 
-satelliteRouter.get('/latest', async (req: Request, res: Response, next: NextFunction) => {
+satelliteRouter.get('/latest', rateLimiter('default'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { locationId } = z.object({ locationId: z.string().uuid() }).parse(req.query);
     const reading = await getLatestSatelliteReading(locationId);
@@ -26,7 +27,7 @@ satelliteRouter.get('/latest', async (req: Request, res: Response, next: NextFun
   } catch (err) { next(err); }
 });
 
-satelliteRouter.get('/summary', authenticate, async (req: Request, res: Response, next: NextFunction) => {
+satelliteRouter.get('/summary', rateLimiter('default'), authenticate, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { locationId } = z.object({ locationId: z.string().uuid() }).parse(req.query);
     const readings = await getSatelliteReadings(locationId, 30);
@@ -48,12 +49,10 @@ satelliteRouter.get('/summary', authenticate, async (req: Request, res: Response
   } catch (err) { next(err); }
 });
 
-// Scheduled satellite data refresh for all locations
-satelliteRouter.post('/refresh-all', authenticate, async (_req: Request, res: Response, next: NextFunction) => {
+satelliteRouter.post('/refresh-all', rateLimiter('default'), authenticate, async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const locations = await prisma.location.findMany({ select: { id: true, latitude: true, longitude: true } });
-    
-    // Trigger async fetches without awaiting
+
     locations.forEach((loc) => {
       fetchAllSatelliteData(loc.id, loc.latitude, loc.longitude)
         .catch((err) => console.error(`Satellite refresh failed for ${loc.id}:`, err));

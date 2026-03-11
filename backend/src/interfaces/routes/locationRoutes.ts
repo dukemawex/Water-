@@ -4,10 +4,11 @@ import { prisma } from '../../infrastructure/database';
 import { authenticate, authorize } from '../middleware/authMiddleware';
 import { UserRole } from '../../types/enums';
 import { fetchAllSatelliteData } from '../../domain/satelliteDataService';
+import { rateLimiter } from '../middleware/rateLimiter';
 
 export const locationRouter = Router();
 
-locationRouter.get('/', authenticate, async (_req: Request, res: Response, next: NextFunction) => {
+locationRouter.get('/', rateLimiter('default'), authenticate, async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const locations = await prisma.location.findMany({
       include: { _count: { select: { readings: true, sensors: true, alerts: true } } },
@@ -17,7 +18,7 @@ locationRouter.get('/', authenticate, async (_req: Request, res: Response, next:
   } catch (err) { next(err); }
 });
 
-locationRouter.get('/:id', authenticate, async (req: Request, res: Response, next: NextFunction) => {
+locationRouter.get('/:id', rateLimiter('default'), authenticate, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const location = await prisma.location.findUnique({
       where: { id: req.params.id },
@@ -34,7 +35,7 @@ locationRouter.get('/:id', authenticate, async (req: Request, res: Response, nex
   } catch (err) { next(err); }
 });
 
-locationRouter.post('/', authenticate, authorize(UserRole.ADMIN, UserRole.SUPER_ADMIN), async (req: Request, res: Response, next: NextFunction) => {
+locationRouter.post('/', rateLimiter('default'), authenticate, authorize(UserRole.ADMIN, UserRole.SUPER_ADMIN), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const schema = z.object({
       name: z.string().min(2),
@@ -48,8 +49,7 @@ locationRouter.post('/', authenticate, authorize(UserRole.ADMIN, UserRole.SUPER_
     });
     const data = schema.parse(req.body);
     const location = await prisma.location.create({ data });
-    
-    // Trigger initial satellite data fetch
+
     fetchAllSatelliteData(location.id, location.latitude, location.longitude)
       .catch((err) => console.error('Initial satellite fetch failed', err));
 
@@ -57,12 +57,11 @@ locationRouter.post('/', authenticate, authorize(UserRole.ADMIN, UserRole.SUPER_
   } catch (err) { next(err); }
 });
 
-locationRouter.post('/:id/fetch-satellite', authenticate, authorize(UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.ANALYST), async (req: Request, res: Response, next: NextFunction) => {
+locationRouter.post('/:id/fetch-satellite', rateLimiter('default'), authenticate, authorize(UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.ANALYST), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const location = await prisma.location.findUnique({ where: { id: req.params.id } });
     if (!location) { res.status(404).json({ success: false, data: null, message: 'Not found', timestamp: new Date().toISOString() }); return; }
-    
-    // Trigger async fetch
+
     fetchAllSatelliteData(location.id, location.latitude, location.longitude)
       .catch((err) => console.error('Satellite fetch failed', err));
 

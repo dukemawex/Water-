@@ -3,10 +3,11 @@ import { z } from 'zod';
 import { prisma } from '../../infrastructure/database';
 import { authenticate, authorize, AuthenticatedRequest } from '../middleware/authMiddleware';
 import { UserRole } from '../../types/enums';
+import { rateLimiter } from '../middleware/rateLimiter';
 
 export const alertRouter = Router();
 
-alertRouter.get('/', authenticate, async (req: Request, res: Response, next: NextFunction) => {
+alertRouter.get('/', rateLimiter('default'), authenticate, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const query = z.object({
       status: z.enum(['ACTIVE', 'ACKNOWLEDGED', 'RESOLVED']).optional(),
@@ -40,7 +41,7 @@ alertRouter.get('/', authenticate, async (req: Request, res: Response, next: Nex
   } catch (err) { next(err); }
 });
 
-alertRouter.patch('/:id/acknowledge', authenticate, authorize(UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.ANALYST, UserRole.FIELD_OFFICER), async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+alertRouter.patch('/:id/acknowledge', rateLimiter('default'), authenticate, authorize(UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.ANALYST, UserRole.FIELD_OFFICER), async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const alert = await prisma.alert.update({
       where: { id: req.params.id },
@@ -50,7 +51,7 @@ alertRouter.patch('/:id/acknowledge', authenticate, authorize(UserRole.ADMIN, Us
   } catch (err) { next(err); }
 });
 
-alertRouter.patch('/:id/resolve', authenticate, authorize(UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.ANALYST), async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+alertRouter.patch('/:id/resolve', rateLimiter('default'), authenticate, authorize(UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.ANALYST), async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const { resolutionNote } = z.object({ resolutionNote: z.string().min(10) }).parse(req.body);
     const alert = await prisma.alert.update({

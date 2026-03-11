@@ -5,6 +5,7 @@ import { authenticate, authorize, authenticateApiKey } from '../middleware/authM
 import { UserRole } from '../../types/enums';
 import { ingestReading } from '../../domain/sensorIngestionService';
 import { broadcast } from '../../infrastructure/wsServer';
+import { rateLimiter } from '../middleware/rateLimiter';
 
 export const sensorRouter = Router();
 
@@ -20,7 +21,7 @@ const ingestSchema = z.object({
   recordedAt: z.string().datetime().optional(),
 });
 
-sensorRouter.post('/ingest', authenticateApiKey, async (req: Request, res: Response, next: NextFunction) => {
+sensorRouter.post('/ingest', rateLimiter('default'), authenticateApiKey, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const payload = ingestSchema.parse(req.body);
     const reading = await ingestReading(payload);
@@ -28,14 +29,14 @@ sensorRouter.post('/ingest', authenticateApiKey, async (req: Request, res: Respo
   } catch (err) { next(err); }
 });
 
-sensorRouter.get('/', authenticate, async (_req: Request, res: Response, next: NextFunction) => {
+sensorRouter.get('/', rateLimiter('default'), authenticate, async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const sensors = await prisma.sensor.findMany({ include: { location: true }, orderBy: { createdAt: 'desc' } });
     res.json({ success: true, data: sensors, message: 'Sensors list', timestamp: new Date().toISOString() });
   } catch (err) { next(err); }
 });
 
-sensorRouter.post('/calibrate', authenticate, authorize(UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.FIELD_OFFICER), async (req: Request, res: Response, next: NextFunction) => {
+sensorRouter.post('/calibrate', rateLimiter('default'), authenticate, authorize(UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.FIELD_OFFICER), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { sensorId, notes } = z.object({ sensorId: z.string().uuid(), notes: z.string().optional() }).parse(req.body);
     const sensor = await prisma.sensor.update({
@@ -50,7 +51,7 @@ sensorRouter.post('/calibrate', authenticate, authorize(UserRole.ADMIN, UserRole
   } catch (err) { next(err); }
 });
 
-sensorRouter.patch('/:id/status', authenticate, authorize(UserRole.ADMIN, UserRole.SUPER_ADMIN), async (req: Request, res: Response, next: NextFunction) => {
+sensorRouter.patch('/:id/status', rateLimiter('default'), authenticate, authorize(UserRole.ADMIN, UserRole.SUPER_ADMIN), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { status } = z.object({ status: z.enum(['ONLINE', 'OFFLINE', 'MAINTENANCE', 'FAULT']) }).parse(req.body);
     const sensor = await prisma.sensor.update({ where: { id: req.params.id }, data: { status } });

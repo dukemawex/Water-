@@ -1,19 +1,15 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { prisma } from '../../infrastructure/database';
 import { getLatestSatelliteReading } from '../../domain/satelliteDataService';
+import { rateLimiter } from '../middleware/rateLimiter';
 
 export const publicRouter = Router();
 
-publicRouter.get('/map-data', async (_req: Request, res: Response, next: NextFunction) => {
+publicRouter.get('/map-data', rateLimiter('default'), async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const locations = await prisma.location.findMany({
       where: { isPublic: true },
-      include: {
-        readings: {
-          orderBy: { recordedAt: 'desc' },
-          take: 1,
-        },
-      },
+      include: { readings: { orderBy: { recordedAt: 'desc' }, take: 1 } },
     });
 
     const pins = await Promise.all(locations.map(async (loc) => {
@@ -40,7 +36,7 @@ publicRouter.get('/map-data', async (_req: Request, res: Response, next: NextFun
   } catch (err) { next(err); }
 });
 
-publicRouter.get('/location/:id', async (req: Request, res: Response, next: NextFunction) => {
+publicRouter.get('/location/:id', rateLimiter('default'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
     const location = await prisma.location.findUnique({
