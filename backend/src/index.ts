@@ -17,7 +17,9 @@ import { alertRouter } from './interfaces/routes/alertRoutes';
 import { locationRouter } from './interfaces/routes/locationRoutes';
 import { reportRouter } from './interfaces/routes/reportRoutes';
 import { satelliteRouter } from './interfaces/routes/satelliteRoutes';
+import { adminRouter } from './interfaces/routes/adminRoutes';
 import { setupAlertEscalationCron } from './domain/alertEscalationCron';
+import { startDataIngestionScheduler } from './domain/dataIngestionScheduler';
 
 const app = express();
 const httpServer = createServer(app);
@@ -65,6 +67,7 @@ app.use('/api/alerts', alertRouter);
 app.use('/api/locations', locationRouter);
 app.use('/api/reports', reportRouter);
 app.use('/api/satellite', satelliteRouter);
+app.use('/api/admin', adminRouter);
 
 // Error handling
 app.use(errorMiddleware);
@@ -87,6 +90,7 @@ setupWebSocketServer(httpServer);
 
 // Background jobs
 setupAlertEscalationCron();
+startDataIngestionScheduler();
 
 const PORT = env.PORT;
 httpServer.listen(PORT, () => {

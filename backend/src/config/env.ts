@@ -31,6 +31,45 @@ const envSchema = z.object({
   FRONTEND_URL: z.string().url().default('http://localhost:5173'),
   API_KEY_SECRET: z.string().min(16),
   PDF_OUTPUT_DIR: z.string().default('./reports'),
+
+  // --- Satellite data feature flags ---
+  // USGS NWIS real-time water quality (no key needed)
+  USGS_NWIS_ENABLED: z.string().default('false').transform((v) => v === 'true'),
+
+  // Copernicus Marine Environment Monitoring Service (CMEMS)
+  CMEMS_USERNAME: z.string().optional(),
+  CMEMS_PASSWORD: z.string().optional(),
+  CMEMS_ENABLED: z.string().default('false').transform((v) => v === 'true'),
+
+  // NASA Earthdata (MODIS/VIIRS)
+  EARTHDATA_USERNAME: z.string().optional(),
+  EARTHDATA_PASSWORD: z.string().optional(),
+  EARTHDATA_ENABLED: z.string().default('false').transform((v) => v === 'true'),
+
+  // OpenWeatherMap weather context
+  OPENWEATHERMAP_API_KEY: z.string().optional(),
+  OPENWEATHERMAP_ENABLED: z.string().default('false').transform((v) => v === 'true'),
+
+  // European Environment Agency (no key needed)
+  EEA_ENABLED: z.string().default('false').transform((v) => v === 'true'),
+
+  // Email notifications (optional)
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z.coerce.number().default(587),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASS: z.string().optional(),
+  SMTP_FROM: z.string().optional(),
+  SMTP_ENABLED: z.string().default('false').transform((v) => v === 'true'),
+
+  // MQTT IoT sensors (optional)
+  MQTT_BROKER_URL: z.string().optional(),
+  MQTT_USERNAME: z.string().optional(),
+  MQTT_PASSWORD: z.string().optional(),
+  MQTT_ENABLED: z.string().default('false').transform((v) => v === 'true'),
+
+  // Redis cache (optional)
+  REDIS_URL: z.string().optional(),
+  REDIS_ENABLED: z.string().default('false').transform((v) => v === 'true'),
 });
 
 export type Env = z.infer<typeof envSchema>;
