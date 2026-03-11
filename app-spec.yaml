@@ -15,12 +15,18 @@ services:
     instance_count: 1
     instance_size_slug: basic-xxs
     envs:
+      # ── REQUIRED ──────────────────────────────────────────────────────────
       - key: DATABASE_URL
         scope: RUN_TIME
         value: ${db.DATABASE_URL}
       - key: NODE_ENV
         scope: RUN_TIME
         value: production
+      - key: PORT
+        scope: RUN_TIME
+        value: "8080"
+      - key: BASE_URL
+        scope: RUN_TIME
       - key: JWT_ACCESS_SECRET
         scope: RUN_TIME
       - key: JWT_REFRESH_SECRET
@@ -31,9 +37,82 @@ services:
         scope: RUN_TIME
       - key: OPENROUTER_API_KEY
         scope: RUN_TIME
+
+      # ── SATELLITE DATA (optional — enable via feature flags) ──────────────
+      # USGS NWIS — no API key needed, just enable
+      - key: USGS_NWIS_ENABLED
+        scope: RUN_TIME
+        value: "true"
+
+      # Copernicus Marine Service (CMEMS)
+      - key: CMEMS_USERNAME
+        scope: RUN_TIME
+      - key: CMEMS_PASSWORD
+        scope: RUN_TIME
+      - key: CMEMS_ENABLED
+        scope: RUN_TIME
+        value: "false"
+
+      # NASA Earthdata (MODIS/VIIRS)
+      - key: EARTHDATA_USERNAME
+        scope: RUN_TIME
+      - key: EARTHDATA_PASSWORD
+        scope: RUN_TIME
+      - key: EARTHDATA_ENABLED
+        scope: RUN_TIME
+        value: "false"
+      # Legacy token-based auth (still accepted)
       - key: NASA_EARTHDATA_TOKEN
         scope: RUN_TIME
+
+      # OpenWeatherMap weather context
+      - key: OPENWEATHERMAP_API_KEY
+        scope: RUN_TIME
+      - key: OPENWEATHERMAP_ENABLED
+        scope: RUN_TIME
+        value: "false"
+
+      # European Environment Agency (no key needed)
+      - key: EEA_ENABLED
+        scope: RUN_TIME
+        value: "false"
+
+      # Legacy Copernicus Dataspace credentials
       - key: COPERNICUS_CLIENT_ID
         scope: RUN_TIME
       - key: COPERNICUS_CLIENT_SECRET
+        scope: RUN_TIME
+
+      # ── EMAIL (optional) ──────────────────────────────────────────────────
+      - key: SMTP_ENABLED
+        scope: RUN_TIME
+        value: "false"
+      - key: SMTP_HOST
+        scope: RUN_TIME
+      - key: SMTP_PORT
+        scope: RUN_TIME
+        value: "587"
+      - key: SMTP_USER
+        scope: RUN_TIME
+      - key: SMTP_PASS
+        scope: RUN_TIME
+      - key: SMTP_FROM
+        scope: RUN_TIME
+
+      # ── MQTT IoT (optional) ───────────────────────────────────────────────
+      - key: MQTT_ENABLED
+        scope: RUN_TIME
+        value: "false"
+      - key: MQTT_BROKER_URL
+        scope: RUN_TIME
+      - key: MQTT_USERNAME
+        scope: RUN_TIME
+      - key: MQTT_PASSWORD
+        scope: RUN_TIME
+
+      # ── REDIS CACHE (optional) ────────────────────────────────────────────
+      - key: REDIS_ENABLED
+        scope: RUN_TIME
+        value: "false"
+      - key: REDIS_URL
         scope: RUN_TIME

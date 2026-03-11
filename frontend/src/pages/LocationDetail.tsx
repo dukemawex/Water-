@@ -3,27 +3,60 @@ import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { apiFetch } from '../services/api';
-import QualityBadge from '../components/ui/QualityBadge';
-import ParameterCard from '../components/ui/ParameterCard';
 import SatelliteDataPanel from '../components/ui/SatelliteDataPanel';
-import { MapPin, Activity, AlertTriangle, FileText, Satellite } from 'lucide-react';
+import { MapPin, Activity, AlertTriangle, FileText, Satellite, Radio } from 'lucide-react';
 
 type Tab = 'overview' | 'live' | 'sensors' | 'reports' | 'satellite';
+
+const gradeColors: Record<string, string> = {
+  EXCELLENT: '#1A7A4A',
+  GOOD: '#2D9D5C',
+  FAIR: '#B45309',
+  POOR: '#C2410C',
+  CRITICAL: '#B91C1C',
+};
+
+function GradeDot({ grade }: { grade: string }) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <span
+        style={{
+          width: '8px',
+          height: '8px',
+          borderRadius: '50%',
+          background: gradeColors[grade] ?? '#6B7280',
+          display: 'inline-block',
+          flexShrink: 0,
+        }}
+        aria-hidden="true"
+      />
+      <span style={{ fontSize: '12px', fontWeight: 600, color: gradeColors[grade] ?? '#6B7280' }}>
+        {grade}
+      </span>
+    </div>
+  );
+}
+
+function formatTimestamp(iso: string): string {
+  return iso.replace('T', ' ').substring(0, 16) + ' UTC';
+}
 
 export default function LocationDetail() {
   const { id } = useParams<{ id: string }>();
   const [activeTab, setActiveTab] = useState<Tab>('overview');
 
-  const { data: location } = useQuery({
+  const { data: location, isLoading } = useQuery({
     queryKey: ['location', id],
     queryFn: () => apiFetch(`/locations/${id}`),
     enabled: !!id,
+    staleTime: 60_000,
   });
 
   const { data: trend } = useQuery({
     queryKey: ['trend', id],
     queryFn: () => apiFetch(`/readings/trend?locationId=${id}&days=30`),
     enabled: !!id,
+    staleTime: 60_000,
   });
 
   const loc = location as {
@@ -32,6 +65,7 @@ export default function LocationDetail() {
     waterBodyType: string;
     latitude: number;
     longitude: number;
+    country: string;
     readings: Array<{
       id: string;
       qualityGrade: string;
@@ -46,9 +80,19 @@ export default function LocationDetail() {
       recordedAt: string;
     }>;
     sensors: Array<{ id: string; name: string; status: string; batteryLevel?: number }>;
-    aiAnalyses: Array<{ publicMessage: string; riskLevel: string; recommendations: Array<{ priority: string; action: string; timeline: string }> }>;
+    aiAnalyses: Array<{
+      publicMessage: string;
+      riskLevel: string;
+      recommendations: Array<{ priority: string; action: string; timeline: string }>;
+    }>;
     alerts: Array<{ id: string; title: string; severity: string; parameter: string }>;
-    satelliteReadings: Array<{ id: string; source: string; capturedAt: string; chlorophyllA?: number; turbidityDerived?: number }>;
+    satelliteReadings: Array<{
+      id: string;
+      source: string;
+      capturedAt: string;
+      chlorophyllA?: number;
+      turbidityDerived?: number;
+    }>;
   } | null;
 
   const trendData = (trend ?? []) as Array<{
@@ -65,130 +109,285 @@ export default function LocationDetail() {
 
   const tabs: Array<{ key: Tab; label: string; icon: React.ReactNode }> = [
     { key: 'overview', label: 'Overview', icon: <Activity size={15} aria-hidden="true" /> },
-    { key: 'live', label: 'Live Data', icon: <Activity size={15} aria-hidden="true" /> },
+    { key: 'live', label: 'Readings', icon: <Activity size={15} aria-hidden="true" /> },
     { key: 'satellite', label: 'Satellite', icon: <Satellite size={15} aria-hidden="true" /> },
-    { key: 'sensors', label: 'Sensors', icon: <MapPin size={15} aria-hidden="true" /> },
-    { key: 'reports', label: 'AI Reports', icon: <FileText size={15} aria-hidden="true" /> },
+    { key: 'sensors', label: 'Sensors', icon: <Radio size={15} aria-hidden="true" /> },
+    { key: 'reports', label: 'Reports', icon: <FileText size={15} aria-hidden="true" /> },
   ];
 
-  if (!loc) return <div className="p-6 text-gray-400">Loading location...</div>;
+  if (isLoading || !loc) {
+    return (
+      <div style={{ padding: '32px', color: '#9CA3AF', fontSize: '14px' }}>
+        Loading location data...
+      </div>
+    );
+  }
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
+    <div className="p-6 space-y-6" style={{ maxWidth: '1440px' }}>
+      {/* Page header */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-100">{loc.name}</h1>
-          <p className="text-gray-400 text-sm">{loc.waterBodyType} • {loc.latitude.toFixed(4)}°N, {loc.longitude.toFixed(4)}°E</p>
+          <h1 style={{ fontSize: '22px', fontWeight: 600, color: '#111827', marginBottom: '4px' }}>
+            {loc.name}
+          </h1>
+          <div className="flex items-center gap-3">
+            <span style={{ fontSize: '12px', color: '#6B7280' }}>
+              <MapPin size={12} style={{ display: 'inline', marginRight: '4px' }} aria-hidden="true" />
+              {loc.waterBodyType} · {loc.country}
+            </span>
+            <span style={{ fontSize: '12px', fontFamily: 'JetBrains Mono, monospace', color: '#6B7280' }}>
+              {loc.latitude.toFixed(4)}, {loc.longitude.toFixed(4)}
+            </span>
+          </div>
         </div>
-        {latestReading && <QualityBadge grade={latestReading.qualityGrade} size="lg" />}
+        {latestReading && (
+          <GradeDot grade={latestReading.qualityGrade} />
+        )}
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 border-b border-gray-800 pb-0" role="tablist">
-        {tabs.map(({ key, label, icon }) => (
-          <button
-            key={key}
-            role="tab"
-            aria-selected={activeTab === key}
-            onClick={() => setActiveTab(key)}
-            className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
-              activeTab === key
-                ? 'border-water-500 text-water-400'
-                : 'border-transparent text-gray-500 hover:text-gray-300'
-            }`}
-          >
-            {icon} {label}
-          </button>
-        ))}
+      <div
+        className="flex"
+        style={{ borderBottom: '1px solid #D1D5DB' }}
+        role="tablist"
+      >
+        {tabs.map(({ key, label, icon }) => {
+          const active = activeTab === key;
+          return (
+            <button
+              key={key}
+              role="tab"
+              aria-selected={active}
+              onClick={() => setActiveTab(key)}
+              className="flex items-center gap-1.5"
+              style={{
+                padding: '10px 16px',
+                fontSize: '13px',
+                fontWeight: active ? 600 : 400,
+                color: active ? '#003F8A' : '#6B7280',
+                borderBottom: active ? '2px solid #003F8A' : '2px solid transparent',
+                marginBottom: '-1px',
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {icon} {label}
+            </button>
+          );
+        })}
       </div>
 
-      {/* Overview tab */}
+      {/* Tab content */}
       {activeTab === 'overview' && (
         <div className="space-y-6">
-          {/* Parameter Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            <ParameterCard label="pH" value={latestReading?.ph} unit="" min={0} max={14} optimal={{ min: 6.5, max: 8.5 }} />
-            <ParameterCard label="Turbidity" value={latestReading?.turbidity} unit=" NTU" min={0} max={50} optimal={{ min: 0, max: 1 }} />
-            <ParameterCard label="Dissolved O₂" value={latestReading?.dissolvedOxygen} unit=" mg/L" min={0} max={15} optimal={{ min: 6, max: 15 }} />
-            <ParameterCard label="Temperature" value={latestReading?.temperature} unit="°C" min={0} max={40} optimal={{ min: 10, max: 20 }} />
-            <ParameterCard label="Conductivity" value={latestReading?.conductivity} unit=" µS/cm" min={0} max={2000} />
-            <ParameterCard label="Nitrate" value={latestReading?.nitrate} unit=" mg/L" min={0} max={100} optimal={{ min: 0, max: 50 }} />
-            <ParameterCard label="Bacteria" value={latestReading?.bacteria} unit=" CFU" min={0} max={1000} optimal={{ min: 0, max: 100 }} />
+          {/* Parameter grid */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {[
+              { label: 'pH', value: latestReading?.ph, unit: '', decimals: 2, optRange: [6.5, 8.5] },
+              { label: 'Turbidity', value: latestReading?.turbidity, unit: ' NTU', decimals: 1, optRange: [0, 4] },
+              { label: 'Dissolved O\u2082', value: latestReading?.dissolvedOxygen, unit: ' mg/L', decimals: 1, optRange: [6, 15] },
+              { label: 'Temperature', value: latestReading?.temperature, unit: '\u00B0C', decimals: 1, optRange: [10, 25] },
+              { label: 'Conductivity', value: latestReading?.conductivity, unit: ' \u00B5S/cm', decimals: 0 },
+              { label: 'Nitrate', value: latestReading?.nitrate, unit: ' mg/L', decimals: 1, optRange: [0, 50] },
+              { label: 'Bacteria', value: latestReading?.bacteria, unit: ' CFU/100ml', decimals: 0, optRange: [0, 100] },
+              {
+                label: 'Quality Score',
+                value: latestReading?.overallScore,
+                unit: '/100',
+                decimals: 0,
+              },
+            ].map(({ label, value, unit, decimals, optRange }) => {
+              const inRange =
+                optRange && value != null
+                  ? value >= optRange[0] && value <= optRange[1]
+                  : null;
+              return (
+                <div key={label} className="card" style={{ padding: '14px 16px' }}>
+                  <p style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#9CA3AF', marginBottom: '6px' }}>
+                    {label}
+                  </p>
+                  <p style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, fontSize: '20px', color: '#1E3A5F' }}>
+                    {value != null ? value.toFixed(decimals) : '—'}
+                    <span style={{ fontSize: '12px', fontWeight: 400, color: '#9CA3AF', marginLeft: '2px' }}>
+                      {value != null ? unit : ''}
+                    </span>
+                  </p>
+                  {inRange !== null && (
+                    <div className="flex items-center gap-1 mt-1">
+                      <span
+                        style={{
+                          width: '6px',
+                          height: '6px',
+                          borderRadius: '50%',
+                          background: inRange ? '#1A7A4A' : '#B91C1C',
+                          display: 'inline-block',
+                        }}
+                        aria-hidden="true"
+                      />
+                      <span style={{ fontSize: '11px', color: inRange ? '#1A7A4A' : '#B91C1C' }}>
+                        {inRange ? 'Within range' : 'Out of range'}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
 
-          {/* pH & Turbidity trend chart */}
+          {/* 30-day trend chart */}
           <div className="card">
-            <h3 className="font-semibold text-gray-200 mb-4">30-Day Trend: pH & Turbidity</h3>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={trendData.slice(-30)}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                <XAxis dataKey="timestamp" tick={{ fill: '#6b7280', fontSize: 11 }} tickFormatter={(v) => new Date(v as string).toLocaleDateString()} />
-                <YAxis tick={{ fill: '#6b7280', fontSize: 11 }} />
-                <Tooltip
-                  contentStyle={{ background: '#1f2937', border: '1px solid #374151', borderRadius: '8px' }}
-                  labelStyle={{ color: '#d1d5db' }}
-                  labelFormatter={(v) => new Date(v as string).toLocaleString()}
+            <p style={{ fontSize: '13px', fontWeight: 600, color: '#111827', marginBottom: '16px' }}>
+              30-Day Trend
+            </p>
+            <ResponsiveContainer width="100%" height={260}>
+              <LineChart data={trendData.slice(-30)} margin={{ top: 4, right: 16, bottom: 4, left: 0 }}>
+                <CartesianGrid strokeDasharray="4 4" stroke="#E5E7EB" />
+                <XAxis
+                  dataKey="timestamp"
+                  tick={{ fill: '#6B7280', fontSize: 11 }}
+                  tickFormatter={(v) => (v as string).substring(5, 10)}
+                  tickLine={false}
+                  axisLine={{ stroke: '#E5E7EB' }}
                 />
-                <Legend wrapperStyle={{ color: '#9ca3af' }} />
-                <Line type="monotone" dataKey="ph" stroke="#0EA5E9" strokeWidth={2} dot={false} name="pH" />
-                <Line type="monotone" dataKey="turbidity" stroke="#f59e0b" strokeWidth={2} dot={false} name="Turbidity (NTU)" />
-                <Line type="monotone" dataKey="satelliteTurbidity" stroke="#3b82f6" strokeWidth={1.5} strokeDasharray="5 5" dot={false} name="🛰 Satellite Turbidity" />
+                <YAxis
+                  tick={{ fill: '#6B7280', fontSize: 11 }}
+                  tickLine={false}
+                  axisLine={false}
+                  width={36}
+                />
+                <Tooltip
+                  contentStyle={{
+                    background: '#FFFFFF',
+                    border: '1px solid #D1D5DB',
+                    borderRadius: '4px',
+                    fontSize: '12px',
+                    boxShadow: 'none',
+                  }}
+                  labelFormatter={(v) => formatTimestamp(v as string)}
+                />
+                <Legend wrapperStyle={{ fontSize: '12px', color: '#374151' }} />
+                <Line type="monotone" dataKey="ph" stroke="#003F8A" strokeWidth={1.5} dot={false} name="pH" connectNulls />
+                <Line type="monotone" dataKey="turbidity" stroke="#B45309" strokeWidth={1.5} dot={false} name="Turbidity (NTU)" connectNulls />
+                <Line type="monotone" dataKey="dissolvedOxygen" stroke="#1A7A4A" strokeWidth={1.5} dot={false} name="DO (mg/L)" connectNulls />
               </LineChart>
             </ResponsiveContainer>
           </div>
 
-          {/* AI Insight */}
+          {/* AI analysis */}
           {latestAI && (
-            <div className="card border-l-4 border-water-500">
-              <h3 className="font-semibold text-gray-200 mb-2 flex items-center gap-2">
-                <AlertTriangle size={16} className="text-water-500" aria-hidden="true" />
-                AI Scientist Analysis
-              </h3>
-              <p className="text-gray-300 text-sm mb-3">{latestAI.publicMessage}</p>
+            <div
+              className="card"
+              style={{ borderLeft: '4px solid #003F8A' }}
+            >
+              <div className="flex items-center gap-2 mb-3">
+                <AlertTriangle size={16} style={{ color: '#003F8A' }} aria-hidden="true" />
+                <span style={{ fontSize: '13px', fontWeight: 600, color: '#111827' }}>
+                  Analysis Summary
+                </span>
+              </div>
+              <p style={{ fontSize: '14px', color: '#374151', lineHeight: '20px', marginBottom: '12px' }}>
+                {latestAI.publicMessage}
+              </p>
               <div className="space-y-2">
-                {(latestAI.recommendations as Array<{ priority: string; action: string; timeline: string }>).slice(0, 3).map((rec, i) => (
-                  <div key={i} className={`flex gap-2 text-sm p-2 rounded-lg ${rec.priority === 'HIGH' ? 'bg-red-500/10 border border-red-500/20' : 'bg-gray-800'}`}>
-                    <span className={`font-medium flex-shrink-0 ${rec.priority === 'HIGH' ? 'text-red-400' : rec.priority === 'MEDIUM' ? 'text-amber-400' : 'text-green-400'}`}>
-                      [{rec.priority}]
-                    </span>
-                    <span className="text-gray-300">{rec.action}</span>
-                    <span className="text-gray-500 ml-auto flex-shrink-0">{rec.timeline}</span>
-                  </div>
-                ))}
+                {latestAI.recommendations.slice(0, 3).map((rec, i) => {
+                  const bgColor = rec.priority === 'HIGH' ? '#FEF2F2' : rec.priority === 'MEDIUM' ? '#FFFBEB' : '#F0FDF4';
+                  const borderColor = rec.priority === 'HIGH' ? '#FCA5A5' : rec.priority === 'MEDIUM' ? '#FCD34D' : '#86EFAC';
+                  const textColor = rec.priority === 'HIGH' ? '#B91C1C' : rec.priority === 'MEDIUM' ? '#B45309' : '#1A7A4A';
+                  return (
+                    <div
+                      key={i}
+                      style={{
+                        padding: '8px 12px',
+                        background: bgColor,
+                        border: `1px solid ${borderColor}`,
+                        borderRadius: '4px',
+                        fontSize: '13px',
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        gap: '8px',
+                      }}
+                    >
+                      <span style={{ fontWeight: 700, color: textColor, flexShrink: 0, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.04em', marginTop: '1px' }}>
+                        [{rec.priority}]
+                      </span>
+                      <span style={{ color: '#374151', flex: 1 }}>{rec.action}</span>
+                      <span style={{ color: '#9CA3AF', flexShrink: 0, fontSize: '12px' }}>{rec.timeline}</span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
         </div>
       )}
 
-      {/* Live Data tab */}
+      {/* Readings table tab */}
       {activeTab === 'live' && (
-        <div className="card overflow-auto">
-          <table className="w-full text-sm" aria-label="Live sensor readings">
-            <thead>
-              <tr className="text-gray-500 border-b border-gray-800">
-                <th className="text-left py-2 px-3">Time</th>
-                <th className="text-left py-2 px-3">Grade</th>
-                <th className="text-right py-2 px-3">pH</th>
-                <th className="text-right py-2 px-3">Turbidity</th>
-                <th className="text-right py-2 px-3">DO (mg/L)</th>
-                <th className="text-right py-2 px-3">Score</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loc.readings.map((r) => (
-                <tr key={r.id} className="border-b border-gray-800/50 hover:bg-gray-800/50">
-                  <td className="py-2 px-3 text-gray-400">{new Date(r.recordedAt).toLocaleString()}</td>
-                  <td className="py-2 px-3"><QualityBadge grade={r.qualityGrade} size="sm" /></td>
-                  <td className="py-2 px-3 text-right font-mono text-gray-300">{r.ph?.toFixed(2) ?? '—'}</td>
-                  <td className="py-2 px-3 text-right font-mono text-gray-300">{r.turbidity?.toFixed(1) ?? '—'}</td>
-                  <td className="py-2 px-3 text-right font-mono text-gray-300">{r.dissolvedOxygen?.toFixed(1) ?? '—'}</td>
-                  <td className="py-2 px-3 text-right font-mono font-bold text-gray-100">{r.overallScore}</td>
+        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+          <div
+            className="px-5 py-3"
+            style={{ borderBottom: '1px solid #E5E7EB' }}
+          >
+            <p style={{ fontSize: '13px', fontWeight: 600, color: '#111827' }}>
+              Reading History — {loc.readings.length} records
+            </p>
+          </div>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }} aria-label="Sensor readings">
+              <thead>
+                <tr style={{ background: '#F9FAFB' }}>
+                  {['Timestamp (UTC)', 'Grade', 'pH', 'Turbidity NTU', 'DO mg/L', 'Temp °C', 'Score'].map((h, i) => (
+                    <th
+                      key={h}
+                      style={{
+                        padding: '8px 12px',
+                        textAlign: i > 1 ? 'right' : 'left',
+                        fontSize: '11px',
+                        fontWeight: 600,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.05em',
+                        color: '#6B7280',
+                        borderBottom: '1px solid #E5E7EB',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {h}
+                    </th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {loc.readings.map((r, idx) => (
+                  <tr key={r.id} style={{ background: idx % 2 === 0 ? '#FFFFFF' : '#F9FAFB', borderBottom: '1px solid #F3F4F6', height: '40px' }}>
+                    <td style={{ padding: '0 12px', color: '#374151', whiteSpace: 'nowrap' }}>
+                      {formatTimestamp(r.recordedAt)}
+                    </td>
+                    <td style={{ padding: '0 12px' }}>
+                      <GradeDot grade={r.qualityGrade} />
+                    </td>
+                    <td style={{ padding: '0 12px', textAlign: 'right', fontFamily: 'JetBrains Mono, monospace', color: '#374151' }}>
+                      {r.ph?.toFixed(2) ?? '—'}
+                    </td>
+                    <td style={{ padding: '0 12px', textAlign: 'right', fontFamily: 'JetBrains Mono, monospace', color: '#374151' }}>
+                      {r.turbidity?.toFixed(1) ?? '—'}
+                    </td>
+                    <td style={{ padding: '0 12px', textAlign: 'right', fontFamily: 'JetBrains Mono, monospace', color: '#374151' }}>
+                      {r.dissolvedOxygen?.toFixed(1) ?? '—'}
+                    </td>
+                    <td style={{ padding: '0 12px', textAlign: 'right', fontFamily: 'JetBrains Mono, monospace', color: '#374151' }}>
+                      {r.temperature?.toFixed(1) ?? '—'}
+                    </td>
+                    <td style={{ padding: '0 12px', textAlign: 'right', fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, color: '#1E3A5F' }}>
+                      {r.overallScore.toFixed(0)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
@@ -197,32 +396,54 @@ export default function LocationDetail() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <SatelliteDataPanel locationId={loc.id} />
 
-          <div className="card space-y-3">
-            <h3 className="font-semibold text-gray-200 flex items-center gap-2">
-              <Satellite size={16} aria-hidden="true" /> Satellite History
-            </h3>
-            <div className="overflow-auto max-h-96">
-              <table className="w-full text-xs" aria-label="Satellite reading history">
+          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+            <div className="px-5 py-3" style={{ borderBottom: '1px solid #E5E7EB' }}>
+              <p style={{ fontSize: '13px', fontWeight: 600, color: '#111827' }}>
+                Satellite Reading History
+              </p>
+            </div>
+            <div style={{ overflowX: 'auto', maxHeight: '400px', overflowY: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }} aria-label="Satellite readings">
                 <thead>
-                  <tr className="text-gray-500 border-b border-gray-800">
-                    <th className="text-left py-1.5 px-2">Source</th>
-                    <th className="text-left py-1.5 px-2">Captured</th>
-                    <th className="text-right py-1.5 px-2">Chl-a (µg/L)</th>
-                    <th className="text-right py-1.5 px-2">Turbidity (NTU)</th>
+                  <tr style={{ background: '#F9FAFB' }}>
+                    {['Source', 'Captured (UTC)', 'Chlorophyll-a µg/L', 'Turbidity NTU'].map((h, i) => (
+                      <th
+                        key={h}
+                        style={{
+                          padding: '8px 12px',
+                          textAlign: i > 1 ? 'right' : 'left',
+                          fontSize: '11px',
+                          fontWeight: 600,
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.05em',
+                          color: '#6B7280',
+                          borderBottom: '1px solid #E5E7EB',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {h}
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {loc.satelliteReadings.map((s) => (
-                    <tr key={s.id} className="border-b border-gray-800/50">
-                      <td className="py-1.5 px-2 text-blue-400">{s.source}</td>
-                      <td className="py-1.5 px-2 text-gray-400">{new Date(s.capturedAt).toLocaleDateString()}</td>
-                      <td className="py-1.5 px-2 text-right font-mono text-gray-300">{s.chlorophyllA?.toFixed(2) ?? '—'}</td>
-                      <td className="py-1.5 px-2 text-right font-mono text-gray-300">{s.turbidityDerived?.toFixed(1) ?? '—'}</td>
+                  {loc.satelliteReadings.map((s, idx) => (
+                    <tr key={s.id} style={{ background: idx % 2 === 0 ? '#FFFFFF' : '#F9FAFB', borderBottom: '1px solid #F3F4F6', height: '40px' }}>
+                      <td style={{ padding: '0 12px', color: '#0066CC', fontSize: '12px' }}>{s.source}</td>
+                      <td style={{ padding: '0 12px', color: '#374151' }}>{formatTimestamp(s.capturedAt)}</td>
+                      <td style={{ padding: '0 12px', textAlign: 'right', fontFamily: 'JetBrains Mono, monospace', color: '#1E3A5F' }}>
+                        {s.chlorophyllA?.toFixed(3) ?? '—'}
+                      </td>
+                      <td style={{ padding: '0 12px', textAlign: 'right', fontFamily: 'JetBrains Mono, monospace', color: '#1E3A5F' }}>
+                        {s.turbidityDerived?.toFixed(1) ?? '—'}
+                      </td>
                     </tr>
                   ))}
                   {loc.satelliteReadings.length === 0 && (
                     <tr>
-                      <td colSpan={4} className="py-6 text-center text-gray-600">No satellite data yet. Click "Refresh" to fetch.</td>
+                      <td colSpan={4} style={{ padding: '32px', textAlign: 'center', color: '#9CA3AF', fontSize: '13px' }}>
+                        No satellite data available. Use the Satellite Data page to fetch data.
+                      </td>
                     </tr>
                   )}
                 </tbody>
@@ -235,63 +456,86 @@ export default function LocationDetail() {
       {/* Sensors tab */}
       {activeTab === 'sensors' && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {loc.sensors.map((s) => (
-            <div key={s.id} className="card space-y-2">
-              <div className="flex items-center justify-between">
-                <p className="font-medium text-gray-200 text-sm">{s.name}</p>
-                <span className={`text-xs px-2 py-0.5 rounded-full ${
-                  s.status === 'ONLINE' ? 'bg-emerald-500/10 text-emerald-400' :
-                  s.status === 'FAULT' ? 'bg-red-500/10 text-red-400' :
-                  'bg-amber-500/10 text-amber-400'
-                }`} role="status">
-                  {s.status}
-                </span>
-              </div>
-              {s.batteryLevel != null && (
-                <div>
-                  <div className="flex justify-between text-xs text-gray-500 mb-1">
-                    <span>Battery</span>
-                    <span>{s.batteryLevel}%</span>
-                  </div>
-                  <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
-                    <div
-                      className={`h-full rounded-full ${s.batteryLevel > 50 ? 'bg-emerald-500' : s.batteryLevel > 20 ? 'bg-amber-500' : 'bg-red-500'}`}
-                      style={{ width: `${s.batteryLevel}%` }}
-                      role="progressbar"
-                      aria-valuenow={s.batteryLevel}
-                      aria-valuemin={0}
-                      aria-valuemax={100}
-                      aria-label="Battery level"
-                    />
+          {loc.sensors.map((s) => {
+            const statusColor = s.status === 'ONLINE' ? '#1A7A4A' : s.status === 'FAULT' ? '#B91C1C' : '#B45309';
+            return (
+              <div key={s.id} className="card">
+                <div className="flex items-center justify-between mb-3">
+                  <span style={{ fontSize: '14px', fontWeight: 600, color: '#111827' }}>{s.name}</span>
+                  <div className="flex items-center gap-1.5">
+                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: statusColor, display: 'inline-block' }} aria-hidden="true" />
+                    <span style={{ fontSize: '12px', fontWeight: 600, color: statusColor }}>{s.status}</span>
                   </div>
                 </div>
-              )}
+                {s.batteryLevel != null && (
+                  <div>
+                    <div className="flex justify-between mb-1">
+                      <span style={{ fontSize: '11px', color: '#6B7280' }}>Battery</span>
+                      <span style={{ fontSize: '11px', fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, color: '#1E3A5F' }}>
+                        {s.batteryLevel}%
+                      </span>
+                    </div>
+                    <div style={{ height: '4px', background: '#E5E7EB', borderRadius: '2px', overflow: 'hidden' }}>
+                      <div
+                        style={{
+                          height: '100%',
+                          width: `${s.batteryLevel}%`,
+                          background: s.batteryLevel > 50 ? '#1A7A4A' : s.batteryLevel > 20 ? '#B45309' : '#B91C1C',
+                        }}
+                        role="progressbar"
+                        aria-valuenow={s.batteryLevel}
+                        aria-valuemin={0}
+                        aria-valuemax={100}
+                        aria-label="Battery level"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          {loc.sensors.length === 0 && (
+            <div style={{ padding: '32px', color: '#9CA3AF', fontSize: '13px', textAlign: 'center' }}>
+              No sensors configured for this location
             </div>
-          ))}
+          )}
         </div>
       )}
 
       {/* Reports tab */}
       {activeTab === 'reports' && (
-        <div className="card space-y-4">
-          <h3 className="font-semibold text-gray-200">Generate AI Report</h3>
-          <p className="text-gray-400 text-sm">
-            Generate a comprehensive 30-day PDF report with AI-generated executive summary, trend analysis, and recommendations.
+        <div className="card" style={{ maxWidth: '600px' }}>
+          <p style={{ fontSize: '16px', fontWeight: 600, color: '#111827', marginBottom: '8px' }}>
+            Generate Compliance Report
+          </p>
+          <p style={{ fontSize: '14px', color: '#6B7280', lineHeight: '20px', marginBottom: '20px' }}>
+            Generate a 30-day PDF compliance report for this location. The report includes
+            parameter trend analysis, threshold comparisons against WHO/EU/EPA standards,
+            and recommendations.
           </p>
           <button
             onClick={async () => {
-              const res = await apiFetch<{ filename: string; path: string }>(`/reports/generate/${loc.id}`, { method: 'POST' });
+              const res = await apiFetch<{ filename: string; path: string }>(
+                `/reports/generate/${loc.id}`,
+                { method: 'POST' },
+              );
               window.open(res.path, '_blank');
             }}
             className="btn-primary flex items-center gap-2"
+            style={{ fontSize: '13px' }}
           >
-            <FileText size={16} aria-hidden="true" />
+            <FileText size={14} aria-hidden="true" />
             Generate PDF Report
           </button>
           {latestAI && (
-            <div className="mt-4 p-4 bg-gray-800 rounded-lg">
-              <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">Latest AI Summary</p>
-              <p className="text-sm text-gray-300">{latestAI.publicMessage}</p>
+            <div
+              className="mt-4 p-4"
+              style={{ background: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: '4px' }}
+            >
+              <p style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#6B7280', marginBottom: '6px' }}>
+                Latest Analysis Summary
+              </p>
+              <p style={{ fontSize: '13px', color: '#374151', lineHeight: '20px' }}>{latestAI.publicMessage}</p>
             </div>
           )}
         </div>
@@ -299,3 +543,4 @@ export default function LocationDetail() {
     </div>
   );
 }
+

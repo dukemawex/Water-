@@ -97,6 +97,7 @@ model Location {
   thresholdConfigs ThresholdConfig[]
   aiAnalyses       AIAnalysis[]
   satelliteReadings SatelliteReading[]
+  weatherContexts  WeatherContext[]
 
   @@map("locations")
 }
@@ -229,4 +230,26 @@ model SatelliteReading {
   createdAt             DateTime        @default(now())
 
   @@map("satellite_readings")
+}
+
+model WeatherContext {
+  id                 String   @id @default(uuid())
+  locationId         String
+  location           Location @relation(fields: [locationId], references: [id])
+  windowStart        DateTime
+  temperature        Float
+  humidity           Float
+  pressure           Float
+  windSpeed          Float
+  windDeg            Float
+  precipitation1h    Float    @default(0)
+  cloudCover         Float
+  weatherMain        String
+  weatherDescription String
+  visibility         Float
+  recordedAt         DateTime
+  createdAt          DateTime @default(now())
+
+  @@unique([locationId, windowStart])
+  @@map("weather_contexts")
 }

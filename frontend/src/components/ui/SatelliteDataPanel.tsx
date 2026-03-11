@@ -8,10 +8,17 @@ interface Props {
 }
 
 const sourceLabels: Record<string, string> = {
-  USGS_WQP: 'USGS Water Quality Portal',
-  NASA_MODIS: 'NASA MODIS (Aqua/Terra)',
+  USGS_WQP: 'USGS WQP',
+  NASA_MODIS: 'NASA MODIS',
   COPERNICUS_SENTINEL2: 'ESA Sentinel-2',
   COPERNICUS_SENTINEL3: 'ESA Sentinel-3',
+};
+
+const sourceColor: Record<string, string> = {
+  USGS_WQP: '#003F8A',
+  NASA_MODIS: '#0066CC',
+  COPERNICUS_SENTINEL2: '#00A8E0',
+  COPERNICUS_SENTINEL3: '#1A7A4A',
 };
 
 export default function SatelliteDataPanel({ locationId }: Props) {
@@ -24,33 +31,30 @@ export default function SatelliteDataPanel({ locationId }: Props) {
   };
 
   return (
-    <div className="card space-y-4">
-      <div className="flex items-center justify-between">
+    <div className="card" style={{ padding: '16px' }}>
+      <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <Satellite size={18} className="text-blue-400" aria-hidden="true" />
-          <h3 className="font-semibold text-gray-200">Satellite Data</h3>
-          <span className="text-xs text-gray-500 bg-blue-500/10 px-2 py-0.5 rounded-full border border-blue-500/20">
-            Open Source
-          </span>
+          <Satellite size={16} style={{ color: '#0066CC' }} aria-hidden="true" />
+          <span style={{ fontSize: '13px', fontWeight: 600, color: '#111827' }}>Satellite Data</span>
         </div>
         <button
           onClick={() => void handleRefresh()}
-          className="text-gray-400 hover:text-blue-400 transition-colors"
+          style={{ color: '#6B7280', cursor: 'pointer', background: 'none', border: 'none', padding: '2px' }}
           title="Refresh satellite data"
           aria-label="Refresh satellite data"
         >
-          <RefreshCw size={15} />
+          <RefreshCw size={14} />
         </button>
       </div>
 
       {isLoading && (
-        <div className="text-gray-500 text-sm text-center py-4 animate-pulse">
+        <div style={{ fontSize: '12px', color: '#9CA3AF', padding: '16px 0', textAlign: 'center' }}>
           Loading satellite data...
         </div>
       )}
 
       {error && (
-        <div className="flex items-center gap-2 text-amber-400 text-sm">
+        <div className="flex items-center gap-2" style={{ fontSize: '12px', color: '#B45309' }}>
           <AlertCircle size={14} aria-hidden="true" />
           <span>Satellite data unavailable</span>
         </div>
@@ -59,62 +63,117 @@ export default function SatelliteDataPanel({ locationId }: Props) {
       {summary != null && !isLoading && (
         <>
           {/* Sources */}
-          <div>
-            <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">Data Sources</p>
-            <div className="flex flex-wrap gap-2">
+          <div className="mb-3">
+            <p
+              style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#9CA3AF', marginBottom: '6px' }}
+            >
+              Data Sources
+            </p>
+            <div className="flex flex-wrap gap-1">
               {summary.sources?.map((src: string) => (
-                <span key={src} className="text-xs bg-blue-500/10 text-blue-300 px-2 py-0.5 rounded border border-blue-500/20">
-                  🛰 {sourceLabels[src] ?? src}
+                <span
+                  key={src}
+                  className="flex items-center gap-1"
+                  style={{
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    padding: '2px 6px',
+                    borderRadius: '2px',
+                    background: '#F0F9FF',
+                    color: sourceColor[src] ?? '#0066CC',
+                    border: `1px solid ${sourceColor[src] ?? '#0066CC'}30`,
+                  }}
+                >
+                  <span
+                    style={{ width: '6px', height: '6px', borderRadius: '50%', background: sourceColor[src] ?? '#0066CC', display: 'inline-block' }}
+                    aria-hidden="true"
+                  />
+                  {sourceLabels[src] ?? src}
                 </span>
               ))}
               {(!summary.sources?.length) && (
-                <span className="text-xs text-gray-600">No data collected yet</span>
+                <span style={{ fontSize: '12px', color: '#9CA3AF' }}>No data collected yet</span>
               )}
             </div>
           </div>
 
-          {/* Averages */}
-          <div className="grid grid-cols-2 gap-3">
+          {/* Parameter grid */}
+          <div className="grid grid-cols-2 gap-2">
+            {summary.averages?.surfaceTemperature != null && (
+              <div
+                style={{
+                  padding: '8px 10px',
+                  background: '#F9FAFB',
+                  border: '1px solid #E5E7EB',
+                  borderRadius: '4px',
+                }}
+              >
+                <p style={{ fontSize: '11px', color: '#6B7280', marginBottom: '2px' }}>Surface Temp</p>
+                <p style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, fontSize: '14px', color: '#1E3A5F' }}>
+                  {(summary.averages.surfaceTemperature as number).toFixed(1)}
+                  <span style={{ fontSize: '11px', fontWeight: 400, color: '#9CA3AF', marginLeft: '2px' }}>°C</span>
+                </p>
+              </div>
+            )}
             {summary.averages?.chlorophyllA != null && (
-              <div className="bg-gray-800 rounded-lg p-3">
-                <p className="text-xs text-gray-500 mb-1">Chlorophyll-a</p>
-                <p className="data-value text-green-400 text-lg">
-                  {summary.averages.chlorophyllA!.toFixed(2)}
-                  <span className="text-gray-500 text-xs ml-1">µg/L</span>
+              <div
+                style={{
+                  padding: '8px 10px',
+                  background: '#F9FAFB',
+                  border: '1px solid #E5E7EB',
+                  borderRadius: '4px',
+                }}
+              >
+                <p style={{ fontSize: '11px', color: '#6B7280', marginBottom: '2px' }}>Chlorophyll-a</p>
+                <p style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, fontSize: '14px', color: '#1E3A5F' }}>
+                  {(summary.averages.chlorophyllA as number).toFixed(2)}
+                  <span style={{ fontSize: '11px', fontWeight: 400, color: '#9CA3AF', marginLeft: '2px' }}>µg/L</span>
                 </p>
               </div>
             )}
             {summary.averages?.turbidityDerived != null && (
-              <div className="bg-gray-800 rounded-lg p-3">
-                <p className="text-xs text-gray-500 mb-1">Turbidity (derived)</p>
-                <p className="data-value text-amber-400 text-lg">
-                  {summary.averages.turbidityDerived!.toFixed(1)}
-                  <span className="text-gray-500 text-xs ml-1">NTU</span>
-                </p>
-              </div>
-            )}
-            {summary.averages?.surfaceTemperature != null && (
-              <div className="bg-gray-800 rounded-lg p-3">
-                <p className="text-xs text-gray-500 mb-1">Surface Temp</p>
-                <p className="data-value text-orange-400 text-lg">
-                  {summary.averages.surfaceTemperature!.toFixed(1)}
-                  <span className="text-gray-500 text-xs ml-1">°C</span>
+              <div
+                style={{
+                  padding: '8px 10px',
+                  background: '#F9FAFB',
+                  border: '1px solid #E5E7EB',
+                  borderRadius: '4px',
+                }}
+              >
+                <p style={{ fontSize: '11px', color: '#6B7280', marginBottom: '2px' }}>Turbidity</p>
+                <p style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, fontSize: '14px', color: '#1E3A5F' }}>
+                  {(summary.averages.turbidityDerived as number).toFixed(1)}
+                  <span style={{ fontSize: '11px', fontWeight: 400, color: '#9CA3AF', marginLeft: '2px' }}>NTU</span>
                 </p>
               </div>
             )}
             {summary.averages?.ndwi != null && (
-              <div className="bg-gray-800 rounded-lg p-3">
-                <p className="text-xs text-gray-500 mb-1">NDWI</p>
-                <p className="data-value text-blue-400 text-lg">
-                  {summary.averages.ndwi!.toFixed(3)}
+              <div
+                style={{
+                  padding: '8px 10px',
+                  background: '#F9FAFB',
+                  border: '1px solid #E5E7EB',
+                  borderRadius: '4px',
+                }}
+              >
+                <p style={{ fontSize: '11px', color: '#6B7280', marginBottom: '2px' }}>NDWI</p>
+                <p style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, fontSize: '14px', color: '#1E3A5F' }}>
+                  {(summary.averages.ndwi as number).toFixed(3)}
                 </p>
               </div>
             )}
           </div>
 
-          <div className="text-xs text-gray-600 pt-1 border-t border-gray-800">
-            {summary.totalDataPoints ?? 0} data points •{' '}
-            Sources: USGS WQP (open), NASA Earthdata, ESA Copernicus
+          <div
+            style={{
+              fontSize: '11px',
+              color: '#9CA3AF',
+              paddingTop: '8px',
+              marginTop: '8px',
+              borderTop: '1px solid #E5E7EB',
+            }}
+          >
+            {summary.totalDataPoints ?? 0} data points · USGS WQP · NASA MODIS · ESA Copernicus
           </div>
         </>
       )}

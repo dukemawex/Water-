@@ -1,195 +1,407 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Droplets, Activity, MapPin, AlertTriangle, Satellite } from 'lucide-react';
+import { Droplets, Activity, MapPin, AlertTriangle, Satellite, Globe } from 'lucide-react';
 import { MapContainer, TileLayer, CircleMarker, Popup } from 'react-leaflet';
 import { useMapPins } from '../hooks/useLocations';
 import { useWebSocket } from '../hooks/useWebSocket';
-import AlertTicker from '../components/ui/AlertTicker';
-import QualityBadge from '../components/ui/QualityBadge';
 import type { PublicMapPin } from '@water-sentinel/shared';
 
+// Colour-blind-safe grade colours matching the ESA palette
 const gradeColor: Record<string, string> = {
-  EXCELLENT: '#10b981',
-  GOOD: '#22c55e',
-  FAIR: '#f59e0b',
-  POOR: '#f97316',
-  CRITICAL: '#dc2626',
-  UNKNOWN: '#6b7280',
+  EXCELLENT: '#1A7A4A',
+  GOOD: '#2D9D5C',
+  FAIR: '#B45309',
+  POOR: '#C2410C',
+  CRITICAL: '#B91C1C',
+  UNKNOWN: '#6B7280',
+};
+
+const gradeLabel: Record<string, string> = {
+  EXCELLENT: 'Excellent',
+  GOOD: 'Good',
+  FAIR: 'Fair',
+  POOR: 'Poor',
+  CRITICAL: 'Critical',
+  UNKNOWN: 'No data',
 };
 
 export default function PublicDashboard() {
   const { data: pins = [], refetch } = useMapPins();
-  const [liveAlerts, setLiveAlerts] = useState<Array<{ id: string; title: string; severity: string }>>([]);
+  const [criticalAlerts, setCriticalAlerts] = useState<Array<{ id: string; title: string }>>([]);
 
   useWebSocket((event) => {
     if (event.type === 'reading:new') refetch();
     if (event.type === 'alert:created') {
-      const payload = event.payload as { title: string; severity: string; locationId: string };
-      if (payload.severity === 'CRITICAL' || payload.severity === 'HIGH') {
-        setLiveAlerts((prev) => [
-          { id: `${Date.now()}`, title: payload.title, severity: payload.severity },
-          ...prev.slice(0, 4),
+      const payload = event.payload as { title: string; severity: string };
+      if (payload.severity === 'CRITICAL') {
+        setCriticalAlerts((prev) => [
+          { id: `${Date.now()}`, title: payload.title },
+          ...prev.slice(0, 2),
         ]);
       }
     }
   });
 
   const typedPins = pins as PublicMapPin[];
-  const safePct = typedPins.length > 0
-    ? Math.round((typedPins.filter((p) => ['EXCELLENT', 'GOOD'].includes(p.qualityGrade)).length / typedPins.length) * 100)
-    : 0;
-
+  const safePct =
+    typedPins.length > 0
+      ? Math.round(
+          (typedPins.filter((p) => ['EXCELLENT', 'GOOD'].includes(p.qualityGrade)).length /
+            typedPins.length) *
+            100,
+        )
+      : 0;
+  const criticalCount = typedPins.filter((p) => p.qualityGrade === 'CRITICAL').length;
   const withSatellite = typedPins.filter((p) => p.satelliteData).length;
 
   return (
-    <div className="min-h-screen bg-ocean-900 flex flex-col">
-      {/* Alert ticker */}
-      <AlertTicker alerts={liveAlerts} />
+    <div className="flex flex-col min-h-screen" style={{ background: '#F2F4F7' }}>
+      {/* Critical alert banner */}
+      {criticalAlerts.length > 0 && (
+        <div
+          className="px-4 py-2 flex items-center gap-3"
+          style={{
+            background: '#B91C1C',
+            color: '#FFFFFF',
+            fontSize: '13px',
+            fontWeight: 600,
+          }}
+          role="alert"
+          aria-live="assertive"
+        >
+          <AlertTriangle size={16} aria-hidden="true" />
+          <span>CRITICAL ALERT: {criticalAlerts[0].title}</span>
+          <button
+            onClick={() => setCriticalAlerts((p) => p.slice(1))}
+            style={{ marginLeft: 'auto', opacity: 0.8, cursor: 'pointer', background: 'none', border: 'none', color: 'inherit', fontSize: '18px', lineHeight: 1 }}
+            aria-label="Dismiss alert"
+          >
+            &times;
+          </button>
+        </div>
+      )}
 
-      {/* Header */}
-      <header className="bg-ocean-900/95 backdrop-blur border-b border-gray-800 px-4 py-3 flex items-center justify-between">
+      {/* Top bar */}
+      <header
+        className="flex items-center justify-between px-6"
+        style={{
+          height: '56px',
+          background: '#FFFFFF',
+          borderBottom: '1px solid #D1D5DB',
+          flexShrink: 0,
+        }}
+      >
         <div className="flex items-center gap-2">
-          <Droplets size={28} className="text-water-500" aria-hidden="true" />
+          <Droplets size={20} style={{ color: '#003F8A' }} aria-hidden="true" />
           <div>
-            <h1 className="font-bold text-gray-100">Water Quality Sentinel</h1>
-            <p className="text-xs text-gray-400">Real-time monitoring platform</p>
+            <span style={{ fontSize: '15px', fontWeight: 600, color: '#111827' }}>Water Quality Sentinel</span>
+            <span style={{ fontSize: '11px', color: '#9CA3AF', marginLeft: '8px' }}>
+              Global Monitoring Platform
+            </span>
           </div>
         </div>
-        <Link to="/login" className="btn-secondary text-sm">
-          Staff Login
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link
+            to="/register"
+            style={{
+              fontSize: '13px',
+              fontWeight: 600,
+              color: '#FFFFFF',
+              background: '#003F8A',
+              padding: '6px 14px',
+              borderRadius: '4px',
+              textDecoration: 'none',
+            }}
+          >
+            Sign Up Free
+          </Link>
+          <Link
+            to="/login"
+            style={{
+              fontSize: '13px',
+              fontWeight: 600,
+              color: '#003F8A',
+              background: '#FFFFFF',
+              border: '1px solid #D1D5DB',
+              padding: '6px 14px',
+              borderRadius: '4px',
+              textDecoration: 'none',
+            }}
+          >
+            Sign In
+          </Link>
+        </div>
       </header>
 
       {/* Stats bar */}
-      <div className="bg-gray-900/50 border-b border-gray-800 px-4 py-3">
-        <div className="max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="flex items-center gap-3">
-            <Activity size={20} className="text-water-500" aria-hidden="true" />
-            <div>
-              <p className="text-xl font-bold text-gray-100">{typedPins.length}</p>
-              <p className="text-xs text-gray-500">Monitoring Sites</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <MapPin size={20} className="text-emerald-500" aria-hidden="true" />
-            <div>
-              <p className="text-xl font-bold text-emerald-400">{safePct}%</p>
-              <p className="text-xs text-gray-500">Safe Locations</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <AlertTriangle size={20} className="text-amber-500" aria-hidden="true" />
-            <div>
-              <p className="text-xl font-bold text-amber-400">{liveAlerts.length}</p>
-              <p className="text-xs text-gray-500">Active Alerts</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <Satellite size={20} className="text-blue-400" aria-hidden="true" />
-            <div>
-              <p className="text-xl font-bold text-blue-400">{withSatellite}</p>
-              <p className="text-xs text-gray-500">Satellite-Enhanced</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Main content */}
-      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
-        {/* Map */}
-        <div className="flex-1 relative" style={{ minHeight: '400px' }}>
-          <MapContainer
-            center={[54.0, -2.0]}
-            zoom={6}
-            className="w-full h-full"
-            style={{ background: '#0F2A4A' }}
-          >
-            <TileLayer
-              url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-            />
-            {typedPins.map((pin) => (
-              <CircleMarker
-                key={pin.locationId}
-                center={[pin.latitude, pin.longitude]}
-                radius={pin.satelliteData ? 14 : 10}
-                pathOptions={{
-                  color: gradeColor[pin.qualityGrade] ?? gradeColor.UNKNOWN,
-                  fillColor: gradeColor[pin.qualityGrade] ?? gradeColor.UNKNOWN,
-                  fillOpacity: 0.7,
-                  weight: pin.satelliteData ? 3 : 2,
-                }}
-              >
-                <Popup>
-                  <div className="font-sans text-gray-800">
-                    <p className="font-bold text-sm mb-1">{pin.name}</p>
-                    <p className="text-xs">Grade: <strong>{pin.qualityGrade}</strong></p>
-                    <p className="text-xs">Score: {pin.overallScore}/100</p>
-                    {pin.satelliteData && (
-                      <p className="text-xs text-blue-600 mt-1">
-                        🛰 Satellite: {pin.satelliteData.source}
-                      </p>
-                    )}
-                    {pin.lastReadingAt && (
-                      <p className="text-xs text-gray-500 mt-1">
-                        Updated: {new Date(pin.lastReadingAt).toLocaleString()}
-                      </p>
-                    )}
-                  </div>
-                </Popup>
-              </CircleMarker>
-            ))}
-          </MapContainer>
-
-          {/* Legend */}
-          <div className="absolute bottom-4 left-4 bg-gray-900/90 backdrop-blur rounded-lg p-3 text-xs space-y-1 z-[1000]">
-            <p className="font-medium text-gray-300 mb-2">Water Quality</p>
-            {Object.entries(gradeColor).filter(([k]) => k !== 'UNKNOWN').map(([grade, color]) => (
-              <div key={grade} className="flex items-center gap-2">
-                <span
-                  className="w-3 h-3 rounded-full inline-block"
-                  style={{ backgroundColor: color }}
-                  aria-hidden="true"
-                />
-                <span className="text-gray-400">{grade.charAt(0) + grade.slice(1).toLowerCase()}</span>
-              </div>
-            ))}
-            <div className="flex items-center gap-2 mt-2 pt-2 border-t border-gray-700">
-              <span className="text-blue-400" aria-hidden="true">🛰</span>
-              <span className="text-gray-400">Satellite data</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Sidebar: recent alerts & locations */}
-        <aside className="w-full lg:w-80 bg-gray-900 border-t lg:border-t-0 lg:border-l border-gray-800 overflow-auto p-4 space-y-4">
-          <h2 className="font-semibold text-gray-200 text-sm uppercase tracking-wider">Monitoring Locations</h2>
-          {typedPins.map((pin) => (
-            <div key={pin.locationId} className="card space-y-2">
-              <div className="flex items-start justify-between gap-2">
-                <p className="font-medium text-gray-200 text-sm">{pin.name}</p>
-                <QualityBadge grade={pin.qualityGrade} size="sm" />
-              </div>
-              <div className="flex items-center gap-4 text-xs text-gray-500">
-                <span>Score: <span className="font-mono text-gray-300">{pin.overallScore}</span>/100</span>
-                {pin.satelliteData && (
-                  <span className="text-blue-400 flex items-center gap-1">
-                    <Satellite size={10} aria-hidden="true" /> Satellite
-                  </span>
-                )}
+      <div
+        style={{
+          background: '#FFFFFF',
+          borderBottom: '1px solid #D1D5DB',
+          padding: '0 24px',
+          flexShrink: 0,
+        }}
+      >
+        <div
+          className="grid grid-cols-2 md:grid-cols-4"
+          style={{ maxWidth: '1440px', margin: '0 auto', gap: '0' }}
+        >
+          {[
+            {
+              icon: Activity,
+              value: typedPins.length,
+              label: 'Monitoring Stations',
+              color: '#003F8A',
+            },
+            {
+              icon: MapPin,
+              value: `${safePct}%`,
+              label: 'Stations Within Limits',
+              color: '#1A7A4A',
+            },
+            {
+              icon: AlertTriangle,
+              value: criticalCount,
+              label: 'Critical Alerts',
+              color: criticalCount > 0 ? '#B91C1C' : '#6B7280',
+            },
+            {
+              icon: Satellite,
+              value: withSatellite,
+              label: 'Satellite-Enhanced',
+              color: '#0066CC',
+            },
+          ].map(({ icon: Icon, value, label, color }, i) => (
+            <div
+              key={label}
+              className="flex items-center gap-3 py-3"
+              style={{
+                padding: '12px 16px',
+                borderRight: i < 3 ? '1px solid #E5E7EB' : 'none',
+              }}
+            >
+              <Icon size={20} style={{ color, flexShrink: 0 }} aria-hidden="true" />
+              <div>
+                <p
+                  className="data-value"
+                  style={{ color, fontSize: '20px' }}
+                >
+                  {value}
+                </p>
+                <p style={{ fontSize: '11px', color: '#6B7280', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  {label}
+                </p>
               </div>
             </div>
           ))}
+        </div>
+      </div>
 
-          {typedPins.length === 0 && (
-            <p className="text-gray-600 text-sm text-center py-8">No monitoring locations configured</p>
-          )}
+      {/* Map + sidebar */}
+      <div className="flex flex-1 overflow-hidden" style={{ minHeight: '400px' }}>
+        {/* Full-screen map */}
+        <div className="flex-1 relative">
+          <MapContainer
+            center={[20, 0]}
+            zoom={2}
+            style={{ width: '100%', height: '100%' }}
+          >
+            {/* CartoDB Positron — clean, scientific map tiles */}
+            <TileLayer
+              url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+              subdomains="abcd"
+              maxZoom={20}
+            />
+            {typedPins.map((pin) => {
+              const color = gradeColor[pin.qualityGrade] ?? gradeColor.UNKNOWN;
+              return (
+                <CircleMarker
+                  key={pin.locationId}
+                  center={[pin.latitude, pin.longitude]}
+                  radius={8}
+                  pathOptions={{
+                    color: '#FFFFFF',
+                    fillColor: color,
+                    fillOpacity: 0.85,
+                    weight: 1.5,
+                  }}
+                >
+                  <Popup>
+                    <div style={{ fontFamily: 'IBM Plex Sans, sans-serif', minWidth: '180px' }}>
+                      <p style={{ fontWeight: 600, fontSize: '13px', color: '#111827', marginBottom: '6px' }}>
+                        {pin.name}
+                      </p>
+                      <div className="flex items-center gap-2 mb-4">
+                        <span
+                          style={{
+                            display: 'inline-block',
+                            width: '8px',
+                            height: '8px',
+                            borderRadius: '50%',
+                            background: color,
+                          }}
+                          aria-hidden="true"
+                        />
+                        <span style={{ fontSize: '12px', fontWeight: 600, color }}>
+                          {gradeLabel[pin.qualityGrade] ?? pin.qualityGrade}
+                        </span>
+                      </div>
+                      <p style={{ fontSize: '12px', color: '#6B7280' }}>
+                        Score:{' '}
+                        <span style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, color: '#1E3A5F' }}>
+                          {pin.overallScore}/100
+                        </span>
+                      </p>
+                      <p style={{ fontSize: '11px', color: '#9CA3AF', marginTop: '4px' }}>
+                        {pin.latitude.toFixed(4)}, {pin.longitude.toFixed(4)}
+                      </p>
+                      {pin.satelliteData && (
+                        <p style={{ fontSize: '11px', color: '#0066CC', marginTop: '4px' }}>
+                          Satellite: {pin.satelliteData.source}
+                        </p>
+                      )}
+                      <p style={{ fontSize: '11px', color: '#9CA3AF', marginTop: '6px', borderTop: '1px solid #E5E7EB', paddingTop: '6px' }}>
+                        Sign in to view full details
+                      </p>
+                    </div>
+                  </Popup>
+                </CircleMarker>
+              );
+            })}
+          </MapContainer>
 
-          <div className="pt-4 border-t border-gray-800 text-xs text-gray-600">
-            <p className="flex items-center gap-1">
-              <Satellite size={12} aria-hidden="true" />
-              Satellite data: USGS WQP, NASA MODIS, ESA Copernicus
+          {/* Legend — bottom-left, white panel, 1px border */}
+          <div
+            className="absolute z-[1000]"
+            style={{
+              bottom: '16px',
+              left: '16px',
+              background: '#FFFFFF',
+              border: '1px solid #D1D5DB',
+              padding: '12px 16px',
+              borderRadius: '4px',
+              minWidth: '140px',
+            }}
+          >
+            <p style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#6B7280', marginBottom: '8px' }}>
+              Quality Grade
             </p>
+            {Object.entries(gradeColor)
+              .filter(([k]) => k !== 'UNKNOWN')
+              .map(([grade, color]) => (
+                <div key={grade} className="flex items-center gap-2" style={{ marginBottom: '4px' }}>
+                  <span
+                    style={{
+                      display: 'inline-block',
+                      width: '8px',
+                      height: '8px',
+                      borderRadius: '50%',
+                      background: color,
+                      flexShrink: 0,
+                    }}
+                    aria-hidden="true"
+                  />
+                  <span style={{ fontSize: '12px', color: '#374151' }}>{gradeLabel[grade]}</span>
+                </div>
+              ))}
+            <div className="flex items-center gap-2" style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #E5E7EB' }}>
+              <Globe size={10} style={{ color: '#0066CC', flexShrink: 0 }} aria-hidden="true" />
+              <span style={{ fontSize: '11px', color: '#6B7280' }}>USGS · CMEMS · NASA</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Right sidebar — location list */}
+        <aside
+          className="hidden lg:flex flex-col overflow-auto"
+          style={{
+            width: '300px',
+            background: '#FFFFFF',
+            borderLeft: '1px solid #D1D5DB',
+          }}
+        >
+          <div
+            className="px-4 py-3 flex-shrink-0"
+            style={{ borderBottom: '1px solid #D1D5DB' }}
+          >
+            <p style={{ fontSize: '13px', fontWeight: 600, color: '#111827' }}>
+              Monitoring Stations
+            </p>
+            <p style={{ fontSize: '12px', color: '#6B7280' }}>
+              {typedPins.length} active stations · quality grades only
+            </p>
+          </div>
+
+          <div className="flex-1 overflow-auto">
+            {typedPins.map((pin) => {
+              const color = gradeColor[pin.qualityGrade] ?? gradeColor.UNKNOWN;
+              return (
+                <div
+                  key={pin.locationId}
+                  style={{
+                    padding: '10px 16px',
+                    borderBottom: '1px solid #F3F4F6',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                  }}
+                >
+                  <span
+                    style={{
+                      width: '8px',
+                      height: '8px',
+                      borderRadius: '50%',
+                      background: color,
+                      flexShrink: 0,
+                    }}
+                    aria-hidden="true"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p style={{ fontSize: '13px', fontWeight: 600, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {pin.name}
+                    </p>
+                    <p style={{ fontSize: '11px', color: '#9CA3AF' }}>
+                      {pin.latitude.toFixed(4)}, {pin.longitude.toFixed(4)}
+                    </p>
+                  </div>
+                  <span style={{ fontSize: '11px', fontWeight: 600, color, whiteSpace: 'nowrap' }}>
+                    {gradeLabel[pin.qualityGrade] ?? pin.qualityGrade}
+                  </span>
+                </div>
+              );
+            })}
+
+            {typedPins.length === 0 && (
+              <p style={{ padding: '32px 16px', textAlign: 'center', fontSize: '13px', color: '#9CA3AF' }}>
+                No monitoring stations configured
+              </p>
+            )}
+          </div>
+
+          <div
+            className="flex-shrink-0 p-4"
+            style={{ borderTop: '1px solid #D1D5DB', background: '#F9FAFB' }}
+          >
+            <p style={{ fontSize: '12px', color: '#6B7280', marginBottom: '8px' }}>
+              Sign in to access detailed readings, trend analysis, and compliance reports.
+            </p>
+            <Link
+              to="/register"
+              style={{
+                display: 'block',
+                textAlign: 'center',
+                fontSize: '13px',
+                fontWeight: 600,
+                color: '#FFFFFF',
+                background: '#003F8A',
+                padding: '8px 16px',
+                borderRadius: '4px',
+                textDecoration: 'none',
+              }}
+            >
+              Request Access
+            </Link>
           </div>
         </aside>
       </div>

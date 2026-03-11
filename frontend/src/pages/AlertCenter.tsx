@@ -1,7 +1,6 @@
 import { useState } from 'react';
-import { Bell, CheckCircle, XCircle, Clock, AlertTriangle } from 'lucide-react';
+import { Bell, CheckCircle, Clock, AlertTriangle } from 'lucide-react';
 import { useAlerts, useAcknowledgeAlert, useResolveAlert } from '../hooks/useAlerts';
-import QualityBadge from '../components/ui/QualityBadge';
 
 interface Alert {
   id: string;
@@ -19,12 +18,16 @@ interface Alert {
   location: { id: string; name: string };
 }
 
-const severityColor: Record<string, string> = {
-  CRITICAL: 'text-red-400 bg-red-500/10 border-red-500/20',
-  HIGH: 'text-orange-400 bg-orange-500/10 border-orange-500/20',
-  MEDIUM: 'text-amber-400 bg-amber-500/10 border-amber-500/20',
-  LOW: 'text-blue-400 bg-blue-500/10 border-blue-500/20',
+const severityStyle: Record<string, { bg: string; color: string; border: string }> = {
+  CRITICAL: { bg: '#FEF2F2', color: '#B91C1C', border: '#FCA5A5' },
+  HIGH: { bg: '#FFF7ED', color: '#C2410C', border: '#FDBA74' },
+  MEDIUM: { bg: '#FFFBEB', color: '#B45309', border: '#FCD34D' },
+  LOW: { bg: '#EFF6FF', color: '#1D4ED8', border: '#93C5FD' },
 };
+
+function formatTimestamp(iso: string): string {
+  return iso.replace('T', ' ').substring(0, 16) + ' UTC';
+}
 
 export default function AlertCenter() {
   const [selected, setSelected] = useState<Alert | null>(null);
@@ -50,25 +53,44 @@ export default function AlertCenter() {
   };
 
   return (
-    <div className="flex h-full">
-      {/* Alert List */}
-      <div className="w-full md:w-1/2 lg:w-2/5 border-r border-gray-800 flex flex-col">
-        <div className="p-4 border-b border-gray-800">
-          <h1 className="text-lg font-bold text-gray-100 flex items-center gap-2">
-            <Bell size={18} className="text-water-500" aria-hidden="true" />
-            Alert Center
-          </h1>
-          <div className="flex gap-2 mt-3">
+    <div className="flex h-full" style={{ background: '#F2F4F7' }}>
+      {/* Left: Alert list */}
+      <div
+        className="flex flex-col flex-shrink-0"
+        style={{
+          width: '360px',
+          background: '#FFFFFF',
+          borderRight: '1px solid #D1D5DB',
+        }}
+      >
+        {/* Header */}
+        <div
+          className="px-4 py-3 flex-shrink-0"
+          style={{ borderBottom: '1px solid #D1D5DB' }}
+        >
+          <div className="flex items-center gap-2 mb-3">
+            <Bell size={18} style={{ color: '#003F8A' }} aria-hidden="true" />
+            <h1 style={{ fontSize: '16px', fontWeight: 600, color: '#111827' }}>Alert Centre</h1>
+          </div>
+          <div className="flex gap-1">
             {['ACTIVE', 'ACKNOWLEDGED', 'RESOLVED'].map((s) => (
               <button
                 key={s}
                 onClick={() => setFilter(s)}
-                className={`text-xs px-3 py-1 rounded-full border transition-colors ${
-                  filter === s
-                    ? 'bg-water-500/20 text-water-400 border-water-500/30'
-                    : 'text-gray-500 border-gray-700 hover:border-gray-600'
-                }`}
                 aria-pressed={filter === s}
+                style={{
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  padding: '4px 10px',
+                  borderRadius: '4px',
+                  border: '1px solid',
+                  cursor: 'pointer',
+                  borderColor: filter === s ? '#003F8A' : '#D1D5DB',
+                  background: filter === s ? '#003F8A' : '#FFFFFF',
+                  color: filter === s ? '#FFFFFF' : '#374151',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.04em',
+                }}
               >
                 {s}
               </button>
@@ -76,115 +98,202 @@ export default function AlertCenter() {
           </div>
         </div>
 
-        <div className="flex-1 overflow-auto p-3 space-y-2" aria-label="Alert list">
-          {isLoading && <p className="text-gray-500 text-center py-8">Loading alerts...</p>}
-          {!isLoading && alerts.length === 0 && (
-            <p className="text-gray-600 text-center py-8">No {filter.toLowerCase()} alerts</p>
+        {/* Alert rows */}
+        <div className="flex-1 overflow-auto" aria-label="Alert list">
+          {isLoading && (
+            <p style={{ padding: '32px', textAlign: 'center', fontSize: '13px', color: '#9CA3AF' }}>
+              Loading alerts...
+            </p>
           )}
-          {alerts.map((alert) => (
-            <button
-              key={alert.id}
-              onClick={() => setSelected(alert)}
-              className={`w-full text-left p-3 rounded-lg border transition-all ${
-                selected?.id === alert.id
-                  ? 'border-water-500/50 bg-water-500/10'
-                  : 'border-gray-800 bg-gray-900 hover:border-gray-700'
-              }`}
-              aria-current={selected?.id === alert.id ? 'true' : undefined}
-            >
-              <div className="flex items-start justify-between gap-2 mb-1">
-                <span className="text-sm font-medium text-gray-200">{alert.title}</span>
-                <span className={`text-xs px-2 py-0.5 rounded-full border flex-shrink-0 ${severityColor[alert.severity] ?? ''}`}>
-                  {alert.severity}
-                </span>
-              </div>
-              <p className="text-xs text-gray-500">{alert.location?.name}</p>
-              <p className="text-xs text-gray-600 mt-1">{new Date(alert.createdAt).toLocaleString()}</p>
-            </button>
-          ))}
+          {!isLoading && alerts.length === 0 && (
+            <p style={{ padding: '32px', textAlign: 'center', fontSize: '13px', color: '#9CA3AF' }}>
+              No {filter.toLowerCase()} alerts
+            </p>
+          )}
+          {alerts.map((alert) => {
+            const style = severityStyle[alert.severity] ?? severityStyle.LOW;
+            const isSelected = selected?.id === alert.id;
+            return (
+              <button
+                key={alert.id}
+                onClick={() => setSelected(alert)}
+                aria-current={isSelected ? 'true' : undefined}
+                style={{
+                  display: 'block',
+                  width: '100%',
+                  textAlign: 'left',
+                  padding: '12px 16px',
+                  borderBottom: '1px solid #F3F4F6',
+                  background: isSelected ? '#EFF6FF' : '#FFFFFF',
+                  borderLeft: isSelected ? '3px solid #003F8A' : '3px solid transparent',
+                  cursor: 'pointer',
+                }}
+              >
+                <div className="flex items-start justify-between gap-2 mb-1">
+                  <span style={{ fontSize: '13px', fontWeight: 600, color: '#111827' }}>
+                    {alert.title}
+                  </span>
+                  <span
+                    style={{
+                      fontSize: '10px',
+                      fontWeight: 700,
+                      padding: '2px 6px',
+                      borderRadius: '2px',
+                      flexShrink: 0,
+                      background: style.bg,
+                      color: style.color,
+                      border: `1px solid ${style.border}`,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.04em',
+                    }}
+                  >
+                    {alert.severity}
+                  </span>
+                </div>
+                <p style={{ fontSize: '12px', color: '#6B7280', marginBottom: '2px' }}>
+                  {alert.location?.name}
+                </p>
+                <p style={{ fontSize: '11px', color: '#9CA3AF' }}>
+                  {formatTimestamp(alert.createdAt)}
+                </p>
+              </button>
+            );
+          })}
         </div>
       </div>
 
-      {/* Detail Panel */}
-      <div className="flex-1 p-6 overflow-auto">
+      {/* Right: Detail panel */}
+      <div className="flex-1 overflow-auto p-6">
         {selected ? (
-          <div className="space-y-6 max-w-2xl">
-            <div className="flex items-start justify-between">
+          <div style={{ maxWidth: '700px' }}>
+            {/* Alert header */}
+            <div className="flex items-start justify-between mb-6">
               <div>
-                <h2 className="text-xl font-bold text-gray-100">{selected.title}</h2>
-                <p className="text-gray-400 text-sm mt-1">{selected.location?.name}</p>
+                <h2 style={{ fontSize: '20px', fontWeight: 600, color: '#111827', marginBottom: '4px' }}>
+                  {selected.title}
+                </h2>
+                <p style={{ fontSize: '13px', color: '#6B7280' }}>{selected.location?.name}</p>
               </div>
-              <span className={`text-sm px-3 py-1 rounded-full border ${severityColor[selected.severity] ?? ''}`}>
-                {selected.severity}
-              </span>
+              {(() => {
+                const style = severityStyle[selected.severity] ?? severityStyle.LOW;
+                return (
+                  <span
+                    style={{
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      padding: '4px 10px',
+                      borderRadius: '4px',
+                      background: style.bg,
+                      color: style.color,
+                      border: `1px solid ${style.border}`,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.05em',
+                      flexShrink: 0,
+                    }}
+                  >
+                    {selected.severity}
+                  </span>
+                );
+              })()}
             </div>
 
-            <div className="card space-y-3">
-              <h3 className="font-medium text-gray-300 text-sm uppercase tracking-wider">Details</h3>
-              <p className="text-gray-300">{selected.description}</p>
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <p className="text-gray-500">Parameter</p>
-                  <p className="font-mono text-gray-200">{selected.parameter}</p>
-                </div>
-                <div>
-                  <p className="text-gray-500">Measured Value</p>
-                  <p className="font-mono text-amber-400 font-bold">{selected.value}</p>
-                </div>
-                <div>
-                  <p className="text-gray-500">Threshold</p>
-                  <p className="font-mono text-gray-200">{selected.threshold}</p>
-                </div>
-                <div>
-                  <p className="text-gray-500">Status</p>
-                  <p className="font-medium text-gray-200">{selected.status}</p>
-                </div>
+            {/* Details card */}
+            <div className="card mb-4">
+              <p
+                className="section-label mb-3"
+                style={{ color: '#6B7280' }}
+              >
+                Alert Details
+              </p>
+              <p style={{ fontSize: '14px', color: '#374151', marginBottom: '16px', lineHeight: '20px' }}>
+                {selected.description}
+              </p>
+              <div
+                className="grid grid-cols-2 gap-0"
+                style={{ border: '1px solid #E5E7EB', borderRadius: '4px', overflow: 'hidden' }}
+              >
+                {[
+                  { label: 'Parameter', value: selected.parameter },
+                  { label: 'Status', value: selected.status },
+                  { label: 'Measured Value', value: selected.value.toString(), mono: true, highlight: true },
+                  { label: 'Threshold', value: selected.threshold.toString(), mono: true },
+                ].map(({ label, value, mono, highlight }, idx) => (
+                  <div
+                    key={label}
+                    style={{
+                      padding: '10px 14px',
+                      background: idx % 2 === 0 ? '#FFFFFF' : '#F9FAFB',
+                      borderBottom: idx < 2 ? '1px solid #E5E7EB' : 'none',
+                      borderRight: idx % 2 === 0 ? '1px solid #E5E7EB' : 'none',
+                    }}
+                  >
+                    <p style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#9CA3AF', marginBottom: '2px' }}>
+                      {label}
+                    </p>
+                    <p
+                      style={{
+                        fontSize: mono ? '15px' : '14px',
+                        fontFamily: mono ? 'JetBrains Mono, monospace' : 'inherit',
+                        fontWeight: mono ? 700 : 400,
+                        color: highlight ? '#B91C1C' : '#111827',
+                      }}
+                    >
+                      {value}
+                    </p>
+                  </div>
+                ))}
               </div>
             </div>
 
             {/* Timeline */}
-            <div className="card space-y-3">
-              <h3 className="font-medium text-gray-300 text-sm uppercase tracking-wider">Timeline</h3>
-              <div className="space-y-2 text-sm">
-                <div className="flex items-center gap-2 text-gray-400">
-                  <AlertTriangle size={14} className="text-red-400" aria-hidden="true" />
-                  <span>Created: {new Date(selected.createdAt).toLocaleString()}</span>
+            <div className="card mb-4">
+              <p className="section-label mb-3" style={{ color: '#6B7280' }}>
+                Timeline
+              </p>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2" style={{ fontSize: '13px', color: '#374151' }}>
+                  <AlertTriangle size={14} style={{ color: '#B91C1C', flexShrink: 0 }} aria-hidden="true" />
+                  <span>Created: {formatTimestamp(selected.createdAt)}</span>
                 </div>
                 {selected.acknowledgedAt && (
-                  <div className="flex items-center gap-2 text-gray-400">
-                    <Clock size={14} className="text-amber-400" aria-hidden="true" />
-                    <span>Acknowledged: {new Date(selected.acknowledgedAt).toLocaleString()}</span>
+                  <div className="flex items-center gap-2" style={{ fontSize: '13px', color: '#374151' }}>
+                    <Clock size={14} style={{ color: '#B45309', flexShrink: 0 }} aria-hidden="true" />
+                    <span>Acknowledged: {formatTimestamp(selected.acknowledgedAt)}</span>
                   </div>
                 )}
                 {selected.resolvedAt && (
-                  <div className="flex items-center gap-2 text-gray-400">
-                    <CheckCircle size={14} className="text-emerald-400" aria-hidden="true" />
-                    <span>Resolved: {new Date(selected.resolvedAt).toLocaleString()}</span>
+                  <div className="flex items-center gap-2" style={{ fontSize: '13px', color: '#374151' }}>
+                    <CheckCircle size={14} style={{ color: '#1A7A4A', flexShrink: 0 }} aria-hidden="true" />
+                    <span>Resolved: {formatTimestamp(selected.resolvedAt)}</span>
                   </div>
                 )}
               </div>
             </div>
 
             {/* Actions */}
-            {selected.status === 'ACTIVE' && (
-              <div className="flex gap-3">
+            <div className="flex gap-3">
+              {selected.status === 'ACTIVE' && (
                 <button
                   onClick={() => void handleAcknowledge(selected.id)}
                   className="btn-secondary flex items-center gap-2"
                   disabled={acknowledge.isPending}
+                  style={{ fontSize: '13px' }}
                 >
-                  <Clock size={15} aria-hidden="true" />
+                  <Clock size={14} aria-hidden="true" />
                   Acknowledge
                 </button>
-              </div>
-            )}
+              )}
+            </div>
 
             {(selected.status === 'ACTIVE' || selected.status === 'ACKNOWLEDGED') && (
-              <div className="card space-y-3">
-                <h3 className="font-medium text-gray-300 text-sm">Resolve Alert</h3>
+              <div className="card mt-4">
+                <p style={{ fontSize: '13px', fontWeight: 600, color: '#111827', marginBottom: '10px' }}>
+                  Resolve Alert
+                </p>
                 <textarea
-                  className="input-field resize-none h-24"
-                  placeholder="Enter resolution note (required, min 10 chars)..."
+                  className="input-field"
+                  style={{ resize: 'none', height: '80px', marginBottom: '10px' }}
+                  placeholder="Enter resolution note (required, min 10 characters)..."
                   value={resolutionNote}
                   onChange={(e) => setResolutionNote(e.target.value)}
                   aria-label="Resolution note"
@@ -193,25 +302,36 @@ export default function AlertCenter() {
                   onClick={() => void handleResolve(selected.id)}
                   className="btn-primary flex items-center gap-2"
                   disabled={resolutionNote.length < 10 || resolve.isPending}
+                  style={{ fontSize: '13px' }}
                 >
-                  <XCircle size={15} aria-hidden="true" />
-                  Resolve Alert
+                  <CheckCircle size={14} aria-hidden="true" />
+                  Mark as Resolved
                 </button>
               </div>
             )}
 
             {selected.resolutionNote && (
-              <div className="card border-l-4 border-emerald-500">
-                <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Resolution Note</p>
-                <p className="text-gray-300 text-sm">{selected.resolutionNote}</p>
+              <div
+                className="mt-4 p-4"
+                style={{
+                  background: '#F0FDF4',
+                  border: '1px solid #86EFAC',
+                  borderLeft: '4px solid #1A7A4A',
+                  borderRadius: '4px',
+                }}
+              >
+                <p className="section-label mb-1" style={{ color: '#1A7A4A' }}>
+                  Resolution Note
+                </p>
+                <p style={{ fontSize: '13px', color: '#374151' }}>{selected.resolutionNote}</p>
               </div>
             )}
           </div>
         ) : (
-          <div className="h-full flex items-center justify-center text-gray-600">
-            <div className="text-center">
-              <Bell size={40} className="mx-auto mb-3 opacity-20" aria-hidden="true" />
-              <p>Select an alert to view details</p>
+          <div className="h-full flex items-center justify-center">
+            <div style={{ textAlign: 'center', color: '#9CA3AF' }}>
+              <Bell size={40} style={{ margin: '0 auto 12px', opacity: 0.3 }} aria-hidden="true" />
+              <p style={{ fontSize: '14px' }}>Select an alert to view details</p>
             </div>
           </div>
         )}
