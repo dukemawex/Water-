@@ -1,10 +1,10 @@
+import { env } from './config/env';
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import compression from 'compression';
 import cookieParser from 'cookie-parser';
 import { createServer } from 'http';
-import { env } from './config/env';
 import { logger } from './config/logger';
 import { setupWebSocketServer } from './infrastructure/wsServer';
 import { errorMiddleware } from './interfaces/middleware/errorMiddleware';
