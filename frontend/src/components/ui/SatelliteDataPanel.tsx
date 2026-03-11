@@ -56,18 +56,18 @@ export default function SatelliteDataPanel({ locationId }: Props) {
         </div>
       )}
 
-      {summary && !isLoading && (
+      {summary != null && !isLoading && (
         <>
           {/* Sources */}
           <div>
             <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">Data Sources</p>
             <div className="flex flex-wrap gap-2">
-              {(summary as { sources: string[] }).sources?.map((src: string) => (
+              {summary.sources?.map((src: string) => (
                 <span key={src} className="text-xs bg-blue-500/10 text-blue-300 px-2 py-0.5 rounded border border-blue-500/20">
                   🛰 {sourceLabels[src] ?? src}
                 </span>
               ))}
-              {(!(summary as { sources: string[] }).sources?.length) && (
+              {(!summary.sources?.length) && (
                 <span className="text-xs text-gray-600">No data collected yet</span>
               )}
             </div>
@@ -75,45 +75,45 @@ export default function SatelliteDataPanel({ locationId }: Props) {
 
           {/* Averages */}
           <div className="grid grid-cols-2 gap-3">
-            {(summary as { averages: Record<string, number | null> }).averages?.chlorophyllA != null && (
+            {summary.averages?.chlorophyllA != null && (
               <div className="bg-gray-800 rounded-lg p-3">
                 <p className="text-xs text-gray-500 mb-1">Chlorophyll-a</p>
                 <p className="data-value text-green-400 text-lg">
-                  {(summary as { averages: Record<string, number | null> }).averages.chlorophyllA!.toFixed(2)}
+                  {summary.averages.chlorophyllA!.toFixed(2)}
                   <span className="text-gray-500 text-xs ml-1">µg/L</span>
                 </p>
               </div>
             )}
-            {(summary as { averages: Record<string, number | null> }).averages?.turbidityDerived != null && (
+            {summary.averages?.turbidityDerived != null && (
               <div className="bg-gray-800 rounded-lg p-3">
                 <p className="text-xs text-gray-500 mb-1">Turbidity (derived)</p>
                 <p className="data-value text-amber-400 text-lg">
-                  {(summary as { averages: Record<string, number | null> }).averages.turbidityDerived!.toFixed(1)}
+                  {summary.averages.turbidityDerived!.toFixed(1)}
                   <span className="text-gray-500 text-xs ml-1">NTU</span>
                 </p>
               </div>
             )}
-            {(summary as { averages: Record<string, number | null> }).averages?.surfaceTemperature != null && (
+            {summary.averages?.surfaceTemperature != null && (
               <div className="bg-gray-800 rounded-lg p-3">
                 <p className="text-xs text-gray-500 mb-1">Surface Temp</p>
                 <p className="data-value text-orange-400 text-lg">
-                  {(summary as { averages: Record<string, number | null> }).averages.surfaceTemperature!.toFixed(1)}
+                  {summary.averages.surfaceTemperature!.toFixed(1)}
                   <span className="text-gray-500 text-xs ml-1">°C</span>
                 </p>
               </div>
             )}
-            {(summary as { averages: Record<string, number | null> }).averages?.ndwi != null && (
+            {summary.averages?.ndwi != null && (
               <div className="bg-gray-800 rounded-lg p-3">
                 <p className="text-xs text-gray-500 mb-1">NDWI</p>
                 <p className="data-value text-blue-400 text-lg">
-                  {(summary as { averages: Record<string, number | null> }).averages.ndwi!.toFixed(3)}
+                  {summary.averages.ndwi!.toFixed(3)}
                 </p>
               </div>
             )}
           </div>
 
           <div className="text-xs text-gray-600 pt-1 border-t border-gray-800">
-            {(summary as { totalDataPoints: number }).totalDataPoints ?? 0} data points •{' '}
+            {summary.totalDataPoints ?? 0} data points •{' '}
             Sources: USGS WQP (open), NASA Earthdata, ESA Copernicus
           </div>
         </>
