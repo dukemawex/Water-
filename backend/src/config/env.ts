@@ -6,8 +6,11 @@ if (!process.env.DATABASE_URL && process.env.PGHOST) {
   process.env.DATABASE_URL = `postgresql://${encodeURIComponent(process.env.PGUSER ?? '')}:${encodeURIComponent(process.env.PGPASSWORD ?? '')}@${process.env.PGHOST}:${process.env.PGPORT ?? '25060'}/${process.env.PGDATABASE ?? 'defaultdb'}?sslmode=require`;
 }
 
-if (!process.env.DATABASE_URL) {
-  console.error('FATAL: DATABASE_URL is not set. Ensure the database component is linked in DigitalOcean App Platform or set DATABASE_URL manually.');
+if (!process.env.DATABASE_URL || !process.env.DATABASE_URL.startsWith('postgres')) {
+  console.error('---------------------------------------------------------');
+  console.error('FATAL ERROR: Valid DATABASE_URL is missing.');
+  console.error('Ensure the Managed Database is linked to the App Platform.');
+  console.error('---------------------------------------------------------');
   process.exit(1);
 }
 
