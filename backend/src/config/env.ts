@@ -1,5 +1,16 @@
 import { z } from 'zod';
 
+// Construct DATABASE_URL from individual PG* variables injected by DigitalOcean App Platform
+// when DATABASE_URL is not already set. This must run before Prisma client is instantiated.
+if (!process.env.DATABASE_URL && process.env.PGHOST) {
+  process.env.DATABASE_URL = `postgresql://${encodeURIComponent(process.env.PGUSER ?? '')}:${encodeURIComponent(process.env.PGPASSWORD ?? '')}@${process.env.PGHOST}:${process.env.PGPORT ?? '25060'}/${process.env.PGDATABASE ?? 'defaultdb'}?sslmode=require`;
+}
+
+if (!process.env.DATABASE_URL) {
+  console.error('FATAL: DATABASE_URL is not set. Ensure the database component is linked in DigitalOcean App Platform or set DATABASE_URL manually.');
+  process.exit(1);
+}
+
 const envSchema = z.object({
   DATABASE_URL: z.string().url(),
   JWT_ACCESS_SECRET: z.string().min(16),
