@@ -1,0 +1,232 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  ANALYST
+  FIELD_OFFICER
+  PUBLIC_USER
+  REGULATOR
+}
+
+enum WaterBodyType {
+  RIVER
+  LAKE
+  RESERVOIR
+  WASTEWATER
+  GROUNDWATER
+  COASTAL
+  WETLAND
+}
+
+enum SensorStatus {
+  ONLINE
+  OFFLINE
+  MAINTENANCE
+  FAULT
+}
+
+enum QualityGrade {
+  EXCELLENT
+  GOOD
+  FAIR
+  POOR
+  CRITICAL
+}
+
+enum AlertStatus {
+  ACTIVE
+  ACKNOWLEDGED
+  RESOLVED
+}
+
+enum AlertSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum SatelliteSource {
+  USGS_WQP
+  NASA_MODIS
+  COPERNICUS_SENTINEL2
+  COPERNICUS_SENTINEL3
+}
+
+model User {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  passwordHash String
+  name         String
+  role         UserRole  @default(PUBLIC_USER)
+  isActive     Boolean   @default(true)
+  refreshToken String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  acknowledgedAlerts Alert[] @relation("AcknowledgedBy")
+  resolvedAlerts     Alert[] @relation("ResolvedBy")
+
+  @@map("users")
+}
+
+model Location {
+  id            String        @id @default(uuid())
+  name          String
+  description   String?
+  latitude      Float
+  longitude     Float
+  waterBodyType WaterBodyType
+  isPublic      Boolean       @default(true)
+  country       String
+  region        String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  sensors          Sensor[]
+  readings         WaterReading[]
+  alerts           Alert[]
+  thresholdConfigs ThresholdConfig[]
+  aiAnalyses       AIAnalysis[]
+  satelliteReadings SatelliteReading[]
+
+  @@map("locations")
+}
+
+model Sensor {
+  id                  String       @id @default(uuid())
+  name                String
+  serialNumber        String       @unique
+  locationId          String
+  location            Location     @relation(fields: [locationId], references: [id])
+  status              SensorStatus @default(ONLINE)
+  batteryLevel        Float?
+  firmwareVersion     String?
+  lastCalibrationAt   DateTime?
+  nextCalibrationAt   DateTime?
+  apiKey              String       @unique @default(uuid())
+  installedAt         DateTime     @default(now())
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+
+  readings WaterReading[]
+  alerts   Alert[]
+
+  @@map("sensors")
+}
+
+model WaterReading {
+  id              String       @id @default(uuid())
+  sensorId        String
+  locationId      String
+  sensor          Sensor       @relation(fields: [sensorId], references: [id])
+  location        Location     @relation(fields: [locationId], references: [id])
+  ph              Float?
+  turbidity       Float?
+  dissolvedOxygen Float?
+  conductivity    Float?
+  temperature     Float?
+  nitrate         Float?
+  bacteria        Float?
+  overallScore    Float
+  qualityGrade    QualityGrade
+  isAnomaly       Boolean      @default(false)
+  recordedAt      DateTime
+  createdAt       DateTime     @default(now())
+
+  aiAnalyses AIAnalysis[]
+
+  @@map("water_readings")
+}
+
+model AIAnalysis {
+  id           String        @id @default(uuid())
+  readingId    String
+  locationId   String
+  reading      WaterReading  @relation(fields: [readingId], references: [id])
+  location     Location      @relation(fields: [locationId], references: [id])
+  riskLevel    AlertSeverity
+  summary      String        @db.Text
+  publicMessage String       @db.Text
+  contaminants Json
+  recommendations Json
+  trends       Json
+  rawResponse  String        @db.Text
+  modelUsed    String
+  createdAt    DateTime      @default(now())
+
+  @@map("ai_analyses")
+}
+
+model Alert {
+  id               String        @id @default(uuid())
+  locationId       String
+  sensorId         String?
+  location         Location      @relation(fields: [locationId], references: [id])
+  sensor           Sensor?       @relation(fields: [sensorId], references: [id])
+  parameter        String
+  value            Float
+  threshold        Float
+  severity         AlertSeverity
+  status           AlertStatus   @default(ACTIVE)
+  title            String
+  description      String        @db.Text
+  acknowledgedAt   DateTime?
+  acknowledgedById String?
+  acknowledgedBy   User?         @relation("AcknowledgedBy", fields: [acknowledgedById], references: [id])
+  resolvedAt       DateTime?
+  resolvedById     String?
+  resolvedBy       User?         @relation("ResolvedBy", fields: [resolvedById], references: [id])
+  resolutionNote   String?       @db.Text
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  @@map("alerts")
+}
+
+model ThresholdConfig {
+  id               String    @id @default(uuid())
+  locationId       String?
+  location         Location? @relation(fields: [locationId], references: [id])
+  parameter        String
+  minValue         Float?
+  maxValue         Float?
+  criticalMinValue Float?
+  criticalMaxValue Float?
+  isGlobal         Boolean   @default(false)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@unique([locationId, parameter])
+  @@map("threshold_configs")
+}
+
+model SatelliteReading {
+  id                    String          @id @default(uuid())
+  locationId            String
+  location              Location        @relation(fields: [locationId], references: [id])
+  source                SatelliteSource
+  capturedAt            DateTime
+  chlorophyllA          Float?
+  totalSuspendedSolids  Float?
+  surfaceTemperature    Float?
+  turbidityDerived      Float?
+  ndwi                  Float?
+  cyanobacteriaIndex    Float?
+  dissolvedOrganicCarbon Float?
+  rawBands              Json?
+  sceneId               String?
+  cloudCoverPercent     Float?
+  resolutionMeters      Float?
+  createdAt             DateTime        @default(now())
+
+  @@map("satellite_readings")
+}

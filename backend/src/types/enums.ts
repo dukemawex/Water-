@@ -1,0 +1,16 @@
+export enum UserRole {
+  SUPER_ADMIN = 'SUPER_ADMIN',
+  ADMIN = 'ADMIN',
+  ANALYST = 'ANALYST',
+  FIELD_OFFICER = 'FIELD_OFFICER',
+  PUBLIC_USER = 'PUBLIC_USER',
+  REGULATOR = 'REGULATOR',
+}
+
+export enum QualityGrade {
+  EXCELLENT = 'EXCELLENT',
+  GOOD = 'GOOD',
+  FAIR = 'FAIR',
+  POOR = 'POOR',
+  CRITICAL = 'CRITICAL',
+}
