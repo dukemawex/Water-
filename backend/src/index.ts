@@ -1,3 +1,4 @@
+import path from 'path';
 import { env } from './config/env';
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
@@ -67,6 +68,19 @@ app.use('/api/satellite', satelliteRouter);
 
 // Error handling
 app.use(errorMiddleware);
+
+// Serve React frontend static files (after API routes)
+const frontendPath = path.join(__dirname, '..', '..', 'frontend', 'dist');
+app.use(express.static(frontendPath));
+
+// Catch-all: serve React app for any non-API route (SPA routing)
+app.get(/^(?!\/api\/).*/, (_req: Request, res: Response) => {
+  res.sendFile(path.join(frontendPath, 'index.html'), (err) => {
+    if (err) {
+      res.status(404).end();
+    }
+  });
+});
 
 // WebSocket
 setupWebSocketServer(httpServer);
